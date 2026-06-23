@@ -8,11 +8,12 @@ interface Props {
   onMonthChange: (m: string) => void
 }
 
-function exportCSV(transactions: { type: string; amount: number; category: string; note: string; date: string }[]) {
-  const header = 'Date,Type,Category,Amount,Note'
-  const rows = transactions.map(t =>
-    `${t.date},${t.type},${t.category},${t.type === 'expense' ? '-' : ''}${t.amount.toFixed(2)},"${t.note.replace(/"/g, '""')}"`
-  )
+function exportCSV(transactions: { type: string; amount: number; category: string; account: string; note: string; date: string }[]) {
+  const header = 'Date,Type,Category,Account,Amount,Note'
+  const rows = transactions.map(t => {
+    const note = t.note.replace(/"/g, '""').replace(/\n/g, ' ')
+    return `${t.date},${t.type},${t.category},${t.account || ''},${t.type === 'expense' ? '-' : ''}${t.amount.toFixed(2)},"${note}"`
+  })
   const csv = [header, ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)

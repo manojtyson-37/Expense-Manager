@@ -96,8 +96,10 @@ export default function Settings() {
   async function handleClearAll() {
     await db.transactions.clear()
     if (user) {
-      const { supabase } = await import('../lib/supabase')
+      const { supabase } = await import(/* @vite-ignore */ '../lib/supabase')
       await supabase.from('transactions').delete().eq('user_id', user.id)
+      await supabase.from('categories').delete().eq('user_id', user.id)
+      await supabase.from('accounts').delete().eq('user_id', user.id)
     }
     setShowConfirm(false)
   }

@@ -1,11 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Transaction } from '../db'
-import { supabase } from '../lib/supabase'
-import { pushTransaction } from '../lib/sync'
+import { getUserId, pushTransaction, deleteCloudTransaction } from '../lib/sync'
 
 export function useTransactions(month?: string) {
   const transactions = useLiveQuery(async () => {
-    let collection = db.transactions.orderBy('date').reverse()
+    const collection = db.transactions.orderBy('date').reverse()
     if (month) {
       const items = await collection.toArray()
       return items.filter(t => t.date.startsWith(month))
@@ -42,11 +41,6 @@ export function useTransactions(month?: string) {
   return { transactions, totals, categoryTotals }
 }
 
-async function getUserId() {
-  const { data } = await supabase.auth.getUser()
-  return data.user?.id
-}
-
 export async function addTransaction(data: Omit<Transaction, 'id' | 'createdAt'>) {
   const id = await db.transactions.add({ ...data, createdAt: Date.now() })
   const userId = await getUserId()
@@ -61,14 +55,7 @@ export async function updateTransaction(id: number, data: Partial<Transaction>) 
   await db.transactions.update(id, data)
   const userId = await getUserId()
   if (userId && old) {
-    // Delete old + insert updated
-    await supabase.from('transactions')
-      .delete()
-      .eq('user_id', userId)
-      .eq('date', old.date)
-      .eq('amount', old.amount)
-      .eq('category', old.category)
-      .eq('created_at', new Date(old.createdAt).toISOString())
+    await deleteCloudTransaction(userId, old)
     const updated = await db.transactions.get(id)
     if (updated) {
       pushTransaction(userId, {
@@ -88,12 +75,6 @@ export async function deleteTransaction(id: number) {
   await db.transactions.delete(id)
   const userId = await getUserId()
   if (userId && t) {
-    supabase.from('transactions')
-      .delete()
-      .eq('user_id', userId)
-      .eq('date', t.date)
-      .eq('amount', t.amount)
-      .eq('category', t.category)
-      .then(({ error }) => { if (error) console.error(error) })
+    deleteCloudTransaction(userId, t).catch(console.error)
   }
 }

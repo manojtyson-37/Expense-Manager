@@ -1,5 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Category } from '../db'
+import { getUserId } from '../lib/sync'
+import { pushCategory, deleteCloudCategory } from '../lib/sync'
 
 export function useCategories(type?: 'income' | 'expense') {
   return useLiveQuery(async () => {
@@ -11,9 +13,19 @@ export function useCategories(type?: 'income' | 'expense') {
 }
 
 export async function addCategory(data: Omit<Category, 'id'>) {
-  return db.categories.add(data)
+  const id = await db.categories.add(data)
+  const userId = await getUserId()
+  if (userId) {
+    pushCategory(userId, data).catch(console.error)
+  }
+  return id
 }
 
 export async function deleteCategory(id: number) {
-  return db.categories.delete(id)
+  const cat = await db.categories.get(id)
+  await db.categories.delete(id)
+  const userId = await getUserId()
+  if (userId && cat) {
+    deleteCloudCategory(userId, cat.name).catch(console.error)
+  }
 }

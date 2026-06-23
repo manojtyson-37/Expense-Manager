@@ -102,7 +102,8 @@ export default function AddTransaction() {
               value={amount}
               onChange={e => setAmount(e.target.value)}
               placeholder="0.00"
-              className="pl-8 text-2xl font-bold"
+              className="text-2xl font-bold"
+              style={{ paddingLeft: '2.5rem' }}
               autoFocus
               required
             />

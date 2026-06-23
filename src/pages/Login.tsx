@@ -50,24 +50,24 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
-            <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="Email"
-              className="pl-10"
+              style={{ paddingLeft: '2.75rem' }}
               required
             />
           </div>
           <div className="relative">
-            <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Password"
-              className="pl-10"
+              style={{ paddingLeft: '2.75rem' }}
               minLength={6}
               required
             />

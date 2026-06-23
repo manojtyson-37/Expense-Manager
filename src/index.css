@@ -40,7 +40,7 @@ body {
 input, select, textarea {
   background: #2a2a2d;
   color: var(--color-text);
-  border: 1.5px solid #666;
+  border: 2px solid #777;
   border-radius: 0.875rem;
   padding: 0.875rem 1rem;
   width: 100%;

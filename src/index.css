@@ -42,7 +42,10 @@ input, select, textarea {
   color: var(--color-text);
   border: 2px solid #777;
   border-radius: 0.875rem;
-  padding: 0.875rem 1rem;
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
   width: 100%;
   box-sizing: border-box;
   font-size: 16px;

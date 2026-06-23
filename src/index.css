@@ -38,21 +38,21 @@ body {
 }
 
 input, select, textarea {
-  background: var(--color-surface);
+  background: #2a2a2d;
   color: var(--color-text);
-  border: 1.5px solid var(--color-surface-lighter);
+  border: 1.5px solid #666;
   border-radius: 0.875rem;
   padding: 0.875rem 1rem;
   width: 100%;
   box-sizing: border-box;
   font-size: 16px;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {

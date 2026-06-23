@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
 import './index.css'
 import App from './App'
-import { seedCategories } from './db'
+import { seedCategories, seedAccounts } from './db'
 
 seedCategories()
+seedAccounts()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

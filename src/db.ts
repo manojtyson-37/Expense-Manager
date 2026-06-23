@@ -5,6 +5,7 @@ export interface Transaction {
   type: 'income' | 'expense'
   amount: number
   category: string
+  account: string
   note: string
   date: string // YYYY-MM-DD
   createdAt: number
@@ -18,15 +19,42 @@ export interface Category {
   color: string
 }
 
+export type AccountType = 'credit_card' | 'upi' | 'cash' | 'bank' | 'wallet'
+
+export interface Account {
+  id?: number
+  name: string
+  type: AccountType
+  icon: string
+  color: string
+}
+
 const db = new Dexie('ExpenseTracker') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
   categories: EntityTable<Category, 'id'>
+  accounts: EntityTable<Account, 'id'>
 }
 
 db.version(1).stores({
   transactions: '++id, type, category, date, createdAt',
   categories: '++id, name, type',
 })
+
+db.version(2).stores({
+  transactions: '++id, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+})
+
+export async function seedAccounts() {
+  const count = await db.accounts.count()
+  if (count > 0) return
+
+  const defaults: Omit<Account, 'id'>[] = [
+    { name: 'Cash', type: 'cash', icon: '💵', color: '#22c55e' },
+  ]
+  await db.accounts.bulkAdd(defaults)
+}
 
 export async function seedCategories() {
   const count = await db.categories.count()

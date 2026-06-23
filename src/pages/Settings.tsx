@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
-import { Download, Trash2, Smartphone } from 'lucide-react'
+import { Download, Trash2, Smartphone, CreditCard } from 'lucide-react'
 
 export default function Settings() {
+  const navigate = useNavigate()
   const [showConfirm, setShowConfirm] = useState(false)
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
 
@@ -17,7 +19,8 @@ export default function Settings() {
   async function handleExportAll() {
     const transactions = await db.transactions.toArray()
     const categories = await db.categories.toArray()
-    const data = JSON.stringify({ transactions, categories }, null, 2)
+    const accounts = await db.accounts.toArray()
+    const data = JSON.stringify({ transactions, categories, accounts }, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -45,6 +48,10 @@ export default function Settings() {
           await db.categories.clear()
           await db.categories.bulkAdd(data.categories)
         }
+        if (data.accounts) {
+          await db.accounts.clear()
+          await db.accounts.bulkAdd(data.accounts)
+        }
         alert('Data imported successfully!')
       } catch {
         alert('Invalid backup file.')
@@ -69,6 +76,17 @@ export default function Settings() {
       <h1 className="text-lg font-bold mb-4">Settings</h1>
 
       <div className="space-y-3">
+        <button
+          onClick={() => navigate('/accounts')}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+        >
+          <CreditCard size={20} className="text-primary shrink-0" />
+          <div>
+            <div className="font-semibold text-sm">Accounts</div>
+            <div className="text-xs text-text-muted">Manage credit cards, UPI, cash accounts</div>
+          </div>
+        </button>
+
         {installPrompt && (
           <button
             onClick={handleInstall}

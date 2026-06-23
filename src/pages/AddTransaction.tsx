@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
+import { useAccounts } from '../hooks/useAccounts'
 import { addTransaction, updateTransaction } from '../hooks/useTransactions'
 import { db } from '../db'
 import { ArrowLeft } from 'lucide-react'
@@ -13,10 +14,12 @@ export default function AddTransaction() {
   const [type, setType] = useState<'expense' | 'income'>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('')
+  const [account, setAccount] = useState('')
   const [note, setNote] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   const categories = useCategories(type)
+  const accounts = useAccounts()
 
   useEffect(() => {
     if (isEdit) {
@@ -25,6 +28,7 @@ export default function AddTransaction() {
           setType(t.type)
           setAmount(String(t.amount))
           setCategory(t.category)
+          setAccount(t.account || '')
           setNote(t.note)
           setDate(t.date)
         }
@@ -38,15 +42,21 @@ export default function AddTransaction() {
     }
   }, [categories, category])
 
+  useEffect(() => {
+    if (accounts && accounts.length > 0 && !account) {
+      setAccount(accounts[0].name)
+    }
+  }, [accounts, account])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const parsed = parseFloat(amount)
     if (!parsed || parsed <= 0) return
 
     if (isEdit) {
-      await updateTransaction(Number(id), { type, amount: parsed, category, note, date })
+      await updateTransaction(Number(id), { type, amount: parsed, category, account, note, date })
     } else {
-      await addTransaction({ type, amount: parsed, category, note, date })
+      await addTransaction({ type, amount: parsed, category, account, note, date })
     }
     navigate(-1)
   }
@@ -83,7 +93,7 @@ export default function AddTransaction() {
         <div>
           <label className="text-xs text-text-muted block mb-1">Amount</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg">$</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg">₹</span>
             <input
               type="number"
               inputMode="decimal"
@@ -119,6 +129,32 @@ export default function AddTransaction() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Account */}
+        <div>
+          <label className="text-xs text-text-muted block mb-1">Paid from</label>
+          {accounts && accounts.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {accounts.map(acc => (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => setAccount(acc.name)}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
+                    account === acc.name
+                      ? 'bg-primary/20 border border-primary'
+                      : 'bg-surface border border-transparent'
+                  }`}
+                >
+                  <span>{acc.icon}</span>
+                  <span>{acc.name}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">No accounts added. Add from Settings → Accounts.</p>
+          )}
         </div>
 
         {/* Date */}

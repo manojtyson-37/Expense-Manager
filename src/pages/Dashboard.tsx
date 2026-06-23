@@ -28,21 +28,21 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           <TrendingUp size={18} className="mx-auto mb-1 text-income" />
           <div className="text-[10px] text-text-muted uppercase tracking-wider">Income</div>
           <div className="text-income font-bold text-lg mt-1">
-            ${(totals?.income || 0).toFixed(2)}
+            ₹{(totals?.income || 0).toFixed(2)}
           </div>
         </div>
         <div className="bg-surface rounded-2xl p-4 text-center">
           <TrendingDown size={18} className="mx-auto mb-1 text-expense" />
           <div className="text-[10px] text-text-muted uppercase tracking-wider">Expense</div>
           <div className="text-expense font-bold text-lg mt-1">
-            ${(totals?.expense || 0).toFixed(2)}
+            ₹{(totals?.expense || 0).toFixed(2)}
           </div>
         </div>
         <div className="bg-surface rounded-2xl p-4 text-center">
           <Wallet size={18} className="mx-auto mb-1 text-primary-light" />
           <div className="text-[10px] text-text-muted uppercase tracking-wider">Balance</div>
           <div className={`font-bold text-lg mt-1 ${(totals?.balance || 0) >= 0 ? 'text-income' : 'text-expense'}`}>
-            ${(totals?.balance || 0).toFixed(2)}
+            ₹{(totals?.balance || 0).toFixed(2)}
           </div>
         </div>
       </div>
@@ -62,7 +62,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                       <span>{cat?.icon || '📦'}</span>
                       <span>{category}</span>
                     </span>
-                    <span className="text-text-muted">${total.toFixed(2)}</span>
+                    <span className="text-text-muted">₹{total.toFixed(2)}</span>
                   </div>
                   <div className="h-2 bg-surface-light rounded-full overflow-hidden">
                     <div

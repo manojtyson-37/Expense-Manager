@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import type { Transaction } from '../db'
 import { useCategories } from '../hooks/useCategories'
+import { useAccounts } from '../hooks/useAccounts'
 
 interface Props {
   transaction: Transaction
@@ -11,7 +12,9 @@ interface Props {
 export default function TransactionItem({ transaction, onDelete }: Props) {
   const navigate = useNavigate()
   const categories = useCategories(transaction.type)
+  const accounts = useAccounts()
   const cat = categories?.find(c => c.name === transaction.category)
+  const acc = accounts?.find(a => a.name === transaction.account)
 
   return (
     <div
@@ -26,11 +29,13 @@ export default function TransactionItem({ transaction, onDelete }: Props) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm truncate">{transaction.category}</div>
-        <div className="text-xs text-text-muted truncate">{transaction.note || 'No note'}</div>
+        <div className="text-xs text-text-muted truncate">
+          {acc ? `${acc.icon} ${acc.name}` : ''}{acc && transaction.note ? ' · ' : ''}{transaction.note || (!acc ? 'No note' : '')}
+        </div>
       </div>
       <div className="text-right shrink-0 flex items-center gap-2">
         <span className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
-          {transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
+          {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
         </span>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(transaction.id!) }}

@@ -94,6 +94,6 @@ export async function deleteTransaction(id: number) {
       .eq('date', t.date)
       .eq('amount', t.amount)
       .eq('category', t.category)
-      .catch(console.error)
+      .then(({ error }) => { if (error) console.error(error) })
   }
 }

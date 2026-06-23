@@ -18,19 +18,19 @@ function formatMonth(month: string): string {
 
 export default function MonthPicker({ month, onChange }: Props) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
+    <div className="flex items-center justify-center gap-4 px-4 py-3">
       <button
         onClick={() => onChange(shiftMonth(month, -1))}
-        className="p-2 rounded-full text-text-muted active:bg-surface-light"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
       >
-        <ChevronLeft size={20} />
+        <ChevronLeft size={18} />
       </button>
-      <span className="font-semibold text-sm">{formatMonth(month)}</span>
+      <span className="font-semibold text-sm min-w-[140px] text-center">{formatMonth(month)}</span>
       <button
         onClick={() => onChange(shiftMonth(month, 1))}
-        className="p-2 rounded-full text-text-muted active:bg-surface-light"
+        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
       >
-        <ChevronRight size={20} />
+        <ChevronRight size={18} />
       </button>
     </div>
   )

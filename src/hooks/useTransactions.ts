@@ -29,12 +29,13 @@ export function useTransactions(month?: string) {
     const filtered = month ? all.filter(t => t.date.startsWith(month)) : all
     const map = new Map<string, { total: number; type: 'income' | 'expense' }>()
     for (const t of filtered) {
-      const existing = map.get(t.category) || { total: 0, type: t.type }
+      const key = `${t.type}:${t.category}`
+      const existing = map.get(key) || { total: 0, type: t.type }
       existing.total += t.amount
-      map.set(t.category, existing)
+      map.set(key, existing)
     }
     return Array.from(map.entries())
-      .map(([category, data]) => ({ category, ...data }))
+      .map(([key, data]) => ({ category: key.split(':').slice(1).join(':'), ...data }))
       .sort((a, b) => b.total - a.total)
   }, [month])
 

@@ -1,19 +1,51 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
-import { Download, Trash2, Smartphone, CreditCard } from 'lucide-react'
+import { useAuth } from '../lib/AuthContext'
+import { fullResync, syncFromCloud } from '../lib/sync'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw } from 'lucide-react'
 
 export default function Settings() {
   const navigate = useNavigate()
+  const { user, signOut } = useAuth()
   const [showConfirm, setShowConfirm] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMsg, setSyncMsg] = useState('')
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
 
-  // Capture PWA install prompt
   if (typeof window !== 'undefined') {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault()
       setInstallPrompt(e)
     })
+  }
+
+  async function handleSync() {
+    if (!user) return
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      await fullResync(user.id)
+      setSyncMsg('Synced to cloud!')
+    } catch {
+      setSyncMsg('Sync failed. Try again.')
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncMsg(''), 3000)
+  }
+
+  async function handlePull() {
+    if (!user) return
+    setSyncing(true)
+    setSyncMsg('')
+    try {
+      await syncFromCloud(user.id)
+      setSyncMsg('Pulled from cloud!')
+    } catch {
+      setSyncMsg('Pull failed. Try again.')
+    }
+    setSyncing(false)
+    setTimeout(() => setSyncMsg(''), 3000)
   }
 
   async function handleExportAll() {
@@ -52,7 +84,8 @@ export default function Settings() {
           await db.accounts.clear()
           await db.accounts.bulkAdd(data.accounts)
         }
-        alert('Data imported successfully!')
+        if (user) await fullResync(user.id)
+        alert('Data imported & synced!')
       } catch {
         alert('Invalid backup file.')
       }
@@ -62,6 +95,10 @@ export default function Settings() {
 
   async function handleClearAll() {
     await db.transactions.clear()
+    if (user) {
+      const { supabase } = await import('../lib/supabase')
+      await supabase.from('transactions').delete().eq('user_id', user.id)
+    }
     setShowConfirm(false)
   }
 
@@ -73,9 +110,44 @@ export default function Settings() {
 
   return (
     <div className="flex-1 px-4 pt-4">
-      <h1 className="text-lg font-bold mb-4">Settings</h1>
+      <h1 className="text-lg font-bold mb-1">Settings</h1>
+      {user && (
+        <p className="text-xs text-text-muted mb-4">{user.email}</p>
+      )}
 
       <div className="space-y-3">
+        {/* Cloud Sync */}
+        <div className="bg-income/10 border border-income/30 rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Cloud size={18} className="text-income" />
+            <span className="font-semibold text-sm">Cloud Sync</span>
+          </div>
+          <p className="text-xs text-text-muted mb-3">
+            Data auto-syncs on every add/edit/delete. Use these for manual sync.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-income text-white rounded-xl text-sm font-medium disabled:opacity-50"
+            >
+              <Cloud size={14} />
+              Push All
+            </button>
+            <button
+              onClick={handlePull}
+              disabled={syncing}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-surface-light rounded-xl text-sm font-medium disabled:opacity-50"
+            >
+              <RefreshCw size={14} />
+              Pull
+            </button>
+          </div>
+          {syncMsg && (
+            <p className="text-xs text-income mt-2 text-center">{syncMsg}</p>
+          )}
+        </div>
+
         <button
           onClick={() => navigate('/accounts')}
           className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
@@ -148,15 +220,26 @@ export default function Settings() {
             <Trash2 size={20} className="text-expense shrink-0" />
             <div>
               <div className="font-semibold text-sm text-expense">Clear All Data</div>
-              <div className="text-xs text-text-muted">Delete all transactions</div>
+              <div className="text-xs text-text-muted">Delete all transactions from local + cloud</div>
             </div>
           </button>
         )}
+
+        <button
+          onClick={signOut}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+        >
+          <LogOut size={20} className="text-text-muted shrink-0" />
+          <div>
+            <div className="font-semibold text-sm">Sign Out</div>
+            <div className="text-xs text-text-muted">Local data stays on device</div>
+          </div>
+        </button>
       </div>
 
       <div className="mt-8 text-center text-text-muted text-xs">
-        <p>Expense Tracker v1.0</p>
-        <p className="mt-1">Data stored locally on your device</p>
+        <p>Expense Tracker v1.1</p>
+        <p className="mt-1">Data synced to Supabase cloud</p>
       </div>
     </div>
   )

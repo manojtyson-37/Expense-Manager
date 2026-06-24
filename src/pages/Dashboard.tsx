@@ -143,6 +143,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                   {Math.abs(expenseDelta).toFixed(0)}% vs last
                 </div>
               )}
+            </div>
           </div>
         </div>
       </div>

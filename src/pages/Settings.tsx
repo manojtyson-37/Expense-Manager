@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { db } from '../db'
+import { db, type Transaction, type Category, type Account } from '../db'
 import { useAuth } from '../lib/AuthContext'
 import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
 import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw } from 'lucide-react'
@@ -94,15 +94,15 @@ export default function Settings() {
         }
         if (data.transactions) {
           await db.transactions.clear()
-          await db.transactions.bulkAdd(data.transactions)
+          await db.transactions.bulkAdd(data.transactions as Transaction[])
         }
         if (data.categories) {
           await db.categories.clear()
-          await db.categories.bulkAdd(data.categories)
+          await db.categories.bulkAdd(data.categories as Category[])
         }
         if (data.accounts) {
           await db.accounts.clear()
-          await db.accounts.bulkAdd(data.accounts)
+          await db.accounts.bulkAdd(data.accounts as Account[])
         }
         if (user) await fullResync(user.id)
         alert('Data imported & synced!')

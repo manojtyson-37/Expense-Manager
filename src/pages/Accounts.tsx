@@ -160,7 +160,7 @@ export default function Accounts() {
             return (
               <div key={typeInfo.type}>
                 <h2 className="text-xs text-text-muted uppercase tracking-wider mb-2">
-                  {typeInfo.icon} {typeInfo.label}s
+                  {typeInfo.icon} {typeInfo.label}
                 </h2>
                 <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                   {items.map(acc => (

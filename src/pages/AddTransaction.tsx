@@ -51,7 +51,7 @@ export default function AddTransaction() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const parsed = parseFloat(amount)
-    if (!parsed || parsed <= 0) return
+    if (isNaN(parsed) || parsed <= 0) return
 
     if (isEdit) {
       await updateTransaction(Number(id), { type, amount: parsed, category, account, note, date })
@@ -134,7 +134,7 @@ export default function AddTransaction() {
 
         {/* Account */}
         <div>
-          <label className="text-xs text-text-muted block mb-1">Paid from</label>
+          <label className="text-xs text-text-muted block mb-1">{type === 'income' ? 'Received in' : 'Paid from'}</label>
           {accounts && accounts.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {accounts.map(acc => (

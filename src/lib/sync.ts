@@ -44,17 +44,30 @@ async function ensureDefaultCategories(userId: string) {
 
 export async function syncFromCloud(userId: string) {
   try {
+    // Fetch ALL data from cloud first — don't touch local until everything succeeds
     const { data: cloudTxns, error: txnErr } = await supabase
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-
     if (txnErr) throw txnErr
 
+    const { data: cloudCats, error: catErr } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', userId)
+    if (catErr) throw catErr
+
+    const { data: cloudAccs, error: accErr } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('user_id', userId)
+    if (accErr) throw accErr
+
+    // All fetches succeeded — now safe to write to local DB
     if (cloudTxns && cloudTxns.length > 0) {
       await db.transactions.clear()
-      const local = cloudTxns.map(t => ({
+      await db.transactions.bulkAdd(cloudTxns.map(t => ({
         type: t.type as 'income' | 'expense',
         amount: Number(t.amount),
         category: t.category,
@@ -62,19 +75,10 @@ export async function syncFromCloud(userId: string) {
         note: t.note,
         date: t.date,
         createdAt: new Date(t.created_at).getTime(),
-      }))
-      await db.transactions.bulkAdd(local as Transaction[])
+      })) as Transaction[])
     }
 
-    const { data: cloudCats, error: catErr } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', userId)
-
-    if (catErr) throw catErr
-
     const activeCats = (cloudCats || []).filter(c => c.type !== '_deleted')
-    // Dedup by name — keep first occurrence
     const seen = new Set<string>()
     const dedupedCats = activeCats.filter(c => {
       if (seen.has(c.name)) return false
@@ -83,44 +87,32 @@ export async function syncFromCloud(userId: string) {
     })
     if (dedupedCats.length > 0) {
       await db.categories.clear()
-      const local = dedupedCats.map(c => ({
+      await db.categories.bulkAdd(dedupedCats.map(c => ({
         name: c.name,
         type: c.type as 'income' | 'expense',
         icon: c.icon,
         color: c.color,
-      }))
-      await db.categories.bulkAdd(local as Category[])
+      })) as Category[])
     } else {
-      // No categories in cloud at all — first-time user, seed defaults
       await ensureDefaultCategories(userId)
     }
 
-    const { data: cloudAccs, error: accErr } = await supabase
-      .from('accounts')
-      .select('*')
-      .eq('user_id', userId)
-
-    if (accErr) throw accErr
-
     if (cloudAccs && cloudAccs.length > 0) {
       await db.accounts.clear()
-      const local = cloudAccs.map(a => ({
+      await db.accounts.bulkAdd(cloudAccs.map(a => ({
         name: a.name,
         type: a.type,
         icon: a.icon,
         color: a.color,
-      }))
-      await db.accounts.bulkAdd(local as Account[])
+      })) as Account[])
     } else {
       const count = await db.accounts.count()
       if (count === 0) await seedAccounts()
-      // Push local accounts to cloud
       const localAccs = await db.accounts.toArray()
       if (localAccs.length > 0) {
-        const rows = localAccs.map(a => ({
-          user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color,
-        }))
-        await supabase.from('accounts').insert(rows)
+        await supabase.from('accounts').insert(
+          localAccs.map(a => ({ user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color }))
+        )
       }
     }
   } catch (err) {

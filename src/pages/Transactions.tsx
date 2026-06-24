@@ -1,4 +1,6 @@
 import { useTransactions, deleteTransaction } from '../hooks/useTransactions'
+import { useCategories } from '../hooks/useCategories'
+import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { Download } from 'lucide-react'
@@ -26,6 +28,8 @@ function exportCSV(transactions: { type: string; amount: number; category: strin
 
 export default function Transactions({ month, onMonthChange }: Props) {
   const { transactions } = useTransactions(month)
+  const categories = useCategories()
+  const accounts = useAccounts()
   const list = transactions || []
 
   const grouped = new Map<string, typeof list>()
@@ -65,7 +69,7 @@ export default function Transactions({ month, onMonthChange }: Props) {
               </div>
               <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                 {items.map(t => (
-                  <TransactionItem key={t.id} transaction={t} onDelete={deleteTransaction} />
+                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={deleteTransaction} />
                 ))}
               </div>
             </div>

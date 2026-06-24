@@ -1,5 +1,6 @@
 import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
+import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction } from '../hooks/useTransactions'
@@ -60,6 +61,7 @@ function formatAmount(n: number): string {
 export default function Dashboard({ month, onMonthChange }: Props) {
   const { transactions, totals, categoryTotals } = useTransactions(month)
   const categories = useCategories()
+  const accounts = useAccounts()
   const navigate = useNavigate()
 
   const recentTransactions = transactions?.slice(0, 5) || []
@@ -193,7 +195,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             </div>
           ) : (
             recentTransactions.map(t => (
-              <TransactionItem key={t.id} transaction={t} onDelete={deleteTransaction} />
+              <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={deleteTransaction} />
             ))
           )}
         </div>

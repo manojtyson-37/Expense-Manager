@@ -16,6 +16,19 @@ export async function addAccount(data: Omit<Account, 'id'>) {
   return id
 }
 
+export async function updateAccount(id: number, data: Partial<Account>) {
+  const old = await db.accounts.get(id)
+  await db.accounts.update(id, data)
+  const userId = await getUserId()
+  if (userId && old) {
+    await deleteCloudAccount(userId, old.name)
+    const updated = await db.accounts.get(id)
+    if (updated) {
+      pushAccount(userId, { name: updated.name, type: updated.type, icon: updated.icon, color: updated.color }).catch(console.error)
+    }
+  }
+}
+
 export async function deleteAccount(id: number) {
   const acc = await db.accounts.get(id)
   await db.accounts.delete(id)

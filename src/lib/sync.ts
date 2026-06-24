@@ -51,6 +51,14 @@ export async function syncFromCloud(userId: string) {
     } else {
       const count = await db.categories.count()
       if (count === 0) await seedCategories()
+      // Push local categories to cloud so they persist across devices
+      const localCats = await db.categories.toArray()
+      if (localCats.length > 0) {
+        const rows = localCats.map(c => ({
+          user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
+        }))
+        await supabase.from('categories').insert(rows)
+      }
     }
 
     const { data: cloudAccs, error: accErr } = await supabase
@@ -72,6 +80,14 @@ export async function syncFromCloud(userId: string) {
     } else {
       const count = await db.accounts.count()
       if (count === 0) await seedAccounts()
+      // Push local accounts to cloud
+      const localAccs = await db.accounts.toArray()
+      if (localAccs.length > 0) {
+        const rows = localAccs.map(a => ({
+          user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color,
+        }))
+        await supabase.from('accounts').insert(rows)
+      }
     }
   } catch (err) {
     console.error('Sync from cloud failed:', err)

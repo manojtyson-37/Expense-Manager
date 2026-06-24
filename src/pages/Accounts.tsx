@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useAccounts, addAccount, deleteAccount } from '../hooks/useAccounts'
-import type { AccountType } from '../db'
-import { Trash2, Plus, ArrowLeft } from 'lucide-react'
+import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/useAccounts'
+import type { AccountType, Account } from '../db'
+import { Trash2, Plus, ArrowLeft, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const ACCOUNT_TYPES: { type: AccountType; label: string; icon: string }[] = [
@@ -17,26 +17,56 @@ const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#06b6d4'
 export default function Accounts() {
   const navigate = useNavigate()
   const accounts = useAccounts()
-  const [showAdd, setShowAdd] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [name, setName] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('credit_card')
   const [color, setColor] = useState('#6366f1')
 
   const selectedTypeInfo = ACCOUNT_TYPES.find(t => t.type === accountType)!
 
-  async function handleAdd() {
-    if (!name.trim()) return
-    await addAccount({
-      name: name.trim(),
-      type: accountType,
-      icon: selectedTypeInfo.icon,
-      color,
-    })
+  function openAdd() {
+    setEditingId(null)
     setName('')
-    setShowAdd(false)
+    setAccountType('credit_card')
+    setColor('#6366f1')
+    setShowForm(true)
   }
 
-  const grouped = new Map<AccountType, typeof accounts>()
+  function openEdit(acc: Account) {
+    setEditingId(acc.id!)
+    setName(acc.name)
+    setAccountType(acc.type)
+    setColor(acc.color)
+    setShowForm(true)
+  }
+
+  function closeForm() {
+    setShowForm(false)
+    setEditingId(null)
+  }
+
+  async function handleSubmit() {
+    if (!name.trim()) return
+    if (editingId) {
+      await updateAccount(editingId, {
+        name: name.trim(),
+        type: accountType,
+        icon: selectedTypeInfo.icon,
+        color,
+      })
+    } else {
+      await addAccount({
+        name: name.trim(),
+        type: accountType,
+        icon: selectedTypeInfo.icon,
+        color,
+      })
+    }
+    closeForm()
+  }
+
+  const grouped = new Map<AccountType, Account[]>()
   for (const acc of accounts || []) {
     const list = grouped.get(acc.type) || []
     list.push(acc)
@@ -51,16 +81,20 @@ export default function Accounts() {
         </button>
         <h1 className="text-lg font-bold flex-1">Accounts</h1>
         <button
-          onClick={() => setShowAdd(!showAdd)}
+          onClick={openAdd}
           className="flex items-center gap-1 text-sm text-primary font-medium"
         >
           <Plus size={18} /> Add
         </button>
       </div>
 
-      {showAdd && (
+      {showForm && (
         <div className="bg-surface rounded-2xl p-4 mb-4 space-y-3">
-          {/* Account Type */}
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-sm font-semibold">{editingId ? 'Edit Account' : 'Add Account'}</span>
+            <button onClick={closeForm} className="p-1 text-text-muted"><X size={18} /></button>
+          </div>
+
           <div>
             <label className="text-xs text-text-muted block mb-1">Account Type</label>
             <div className="flex flex-wrap gap-2">
@@ -81,7 +115,6 @@ export default function Accounts() {
             </div>
           </div>
 
-          {/* Name */}
           <div>
             <label className="text-xs text-text-muted block mb-1">Account Name</label>
             <input
@@ -92,7 +125,6 @@ export default function Accounts() {
             />
           </div>
 
-          {/* Color */}
           <div>
             <label className="text-xs text-text-muted block mb-1">Color</label>
             <div className="flex flex-wrap gap-2">
@@ -108,15 +140,14 @@ export default function Accounts() {
           </div>
 
           <button
-            onClick={handleAdd}
+            onClick={handleSubmit}
             className="w-full py-2.5 bg-primary rounded-xl text-white font-medium"
           >
-            Add Account
+            {editingId ? 'Save Changes' : 'Add Account'}
           </button>
         </div>
       )}
 
-      {/* Account List */}
       {(!accounts || accounts.length === 0) ? (
         <div className="py-20 text-center text-text-muted text-sm">
           No accounts added. Tap + to add your first account.
@@ -133,7 +164,7 @@ export default function Accounts() {
                 </h2>
                 <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                   {items.map(acc => (
-                    <div key={acc.id} className="flex items-center gap-3 px-4 py-3">
+                    <div key={acc.id} className="flex items-center gap-3 px-4 py-3 active:bg-surface-light/50 cursor-pointer" onClick={() => openEdit(acc)}>
                       <div
                         className="w-9 h-9 rounded-full flex items-center justify-center text-sm"
                         style={{ backgroundColor: acc.color + '20' }}
@@ -142,7 +173,7 @@ export default function Accounts() {
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
                       <button
-                        onClick={() => deleteAccount(acc.id!)}
+                        onClick={(e) => { e.stopPropagation(); deleteAccount(acc.id!) }}
                         className="p-2 text-text-muted active:text-expense"
                       >
                         <Trash2 size={16} />

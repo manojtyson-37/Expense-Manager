@@ -21,6 +21,19 @@ export async function addCategory(data: Omit<Category, 'id'>) {
   return id
 }
 
+export async function updateCategory(id: number, data: Partial<Category>) {
+  const old = await db.categories.get(id)
+  await db.categories.update(id, data)
+  const userId = await getUserId()
+  if (userId && old) {
+    await deleteCloudCategory(userId, old.name)
+    const updated = await db.categories.get(id)
+    if (updated) {
+      pushCategory(userId, { name: updated.name, type: updated.type, icon: updated.icon, color: updated.color }).catch(console.error)
+    }
+  }
+}
+
 export async function deleteCategory(id: number) {
   const cat = await db.categories.get(id)
   await db.categories.delete(id)

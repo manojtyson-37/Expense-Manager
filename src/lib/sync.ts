@@ -11,7 +11,18 @@ export { getUserId }
 async function ensureDefaultCategories(userId: string) {
   const existing = await db.categories.toArray()
   const existingNames = new Set(existing.map(c => c.name))
-  const missing = DEFAULT_CATEGORIES.filter(c => !existingNames.has(c.name))
+
+  // Check cloud for tombstones (defaults the user deliberately deleted)
+  const { data: tombstones } = await supabase
+    .from('categories')
+    .select('name')
+    .eq('user_id', userId)
+    .eq('type', '_deleted')
+  const deletedNames = new Set((tombstones || []).map(t => t.name))
+
+  const missing = DEFAULT_CATEGORIES.filter(c =>
+    !existingNames.has(c.name) && !deletedNames.has(c.name)
+  )
 
   if (missing.length === 0) return
 
@@ -54,9 +65,10 @@ export async function syncFromCloud(userId: string) {
 
     if (catErr) throw catErr
 
-    if (cloudCats && cloudCats.length > 0) {
+    const activeCats = (cloudCats || []).filter(c => c.type !== '_deleted')
+    if (activeCats.length > 0) {
       await db.categories.clear()
-      const local = cloudCats.map(c => ({
+      const local = activeCats.map(c => ({
         name: c.name,
         type: c.type as 'income' | 'expense',
         icon: c.icon,
@@ -141,6 +153,18 @@ export async function deleteCloudCategory(userId: string, name: string) {
     .eq('user_id', userId)
     .eq('name', name)
   if (error) console.error('Delete cloud category failed:', error)
+
+  // If it's a default category, insert tombstone so it doesn't come back
+  const isDefault = DEFAULT_CATEGORIES.some(c => c.name === name)
+  if (isDefault) {
+    await supabase.from('categories').insert({
+      user_id: userId,
+      name,
+      type: '_deleted',
+      icon: '',
+      color: '',
+    })
+  }
 }
 
 export async function pushAccount(userId: string, a: Omit<Account, 'id'>) {

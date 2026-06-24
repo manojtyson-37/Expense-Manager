@@ -83,8 +83,15 @@ export async function syncFromCloud(userId: string) {
     }
 
     if (cloudAccs && cloudAccs.length > 0) {
+      // Dedup by name
+      const seenAcc = new Set<string>()
+      const dedupedAccs = cloudAccs.filter(a => {
+        if (seenAcc.has(a.name)) return false
+        seenAcc.add(a.name)
+        return true
+      })
       await db.accounts.clear()
-      await db.accounts.bulkAdd(cloudAccs.map(a => ({
+      await db.accounts.bulkAdd(dedupedAccs.map(a => ({
         name: a.name, type: a.type, icon: a.icon, color: a.color,
       })) as Account[])
     } else {

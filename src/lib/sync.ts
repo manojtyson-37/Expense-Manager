@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, type Transaction, type Category, type Account, seedCategories, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, type Transaction, type Category, type Account, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()

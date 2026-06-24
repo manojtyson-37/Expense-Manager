@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, type Transaction, type Category, type Account, seedCategories, seedAccounts } from '../db'
+import { db, type Transaction, type Category, type Account, seedCategories, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -7,6 +7,21 @@ async function getUserId(): Promise<string | null> {
 }
 
 export { getUserId }
+
+async function ensureDefaultCategories(userId: string) {
+  const existing = await db.categories.toArray()
+  const existingNames = new Set(existing.map(c => c.name))
+  const missing = DEFAULT_CATEGORIES.filter(c => !existingNames.has(c.name))
+
+  if (missing.length === 0) return
+
+  await db.categories.bulkAdd(missing as Category[])
+
+  const rows = missing.map(c => ({
+    user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
+  }))
+  await supabase.from('categories').insert(rows)
+}
 
 export async function syncFromCloud(userId: string) {
   try {
@@ -48,18 +63,9 @@ export async function syncFromCloud(userId: string) {
         color: c.color,
       }))
       await db.categories.bulkAdd(local as Category[])
-    } else {
-      const count = await db.categories.count()
-      if (count === 0) await seedCategories()
-      // Push local categories to cloud so they persist across devices
-      const localCats = await db.categories.toArray()
-      if (localCats.length > 0) {
-        const rows = localCats.map(c => ({
-          user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
-        }))
-        await supabase.from('categories').insert(rows)
-      }
     }
+    // Ensure all default categories exist (merge, don't duplicate)
+    await ensureDefaultCategories(userId)
 
     const { data: cloudAccs, error: accErr } = await supabase
       .from('accounts')

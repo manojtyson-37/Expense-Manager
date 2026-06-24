@@ -90,9 +90,10 @@ export async function syncFromCloud(userId: string) {
         color: c.color,
       }))
       await db.categories.bulkAdd(local as Category[])
+    } else {
+      // No categories in cloud at all — first-time user, seed defaults
+      await ensureDefaultCategories(userId)
     }
-    // Ensure all default categories exist (merge, don't duplicate)
-    await ensureDefaultCategories(userId)
 
     const { data: cloudAccs, error: accErr } = await supabase
       .from('accounts')

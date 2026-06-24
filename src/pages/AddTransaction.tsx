@@ -113,20 +113,20 @@ export default function AddTransaction() {
         {/* Category */}
         <div>
           <label className="text-xs text-text-muted block mb-1">Category</label>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             {categories?.map(c => (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => setCategory(c.name)}
-                className={`flex flex-col items-center gap-1 p-3 rounded-xl text-xs transition-colors ${
+                className={`flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl text-xs transition-colors shrink-0 ${
                   category === c.name
                     ? 'bg-primary/20 border border-primary'
                     : 'bg-surface border border-transparent'
                 }`}
               >
                 <span className="text-lg">{c.icon}</span>
-                <span className="truncate w-full text-center">{c.name}</span>
+                <span className="whitespace-nowrap">{c.name}</span>
               </button>
             ))}
           </div>

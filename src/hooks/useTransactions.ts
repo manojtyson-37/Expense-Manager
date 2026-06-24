@@ -56,17 +56,22 @@ export async function updateTransaction(id: number, data: Partial<Transaction>) 
   await db.transactions.update(id, data)
   const userId = await getUserId()
   if (userId && old) {
-    await deleteCloudTransaction(userId, old)
-    const updated = await db.transactions.get(id)
-    if (updated) {
+    try {
+      await deleteCloudTransaction(userId, old)
+      const updated = await db.transactions.get(id)
+      if (updated) {
+        await pushTransaction(userId, {
+          type: updated.type, amount: updated.amount, category: updated.category,
+          account: updated.account, note: updated.note, date: updated.date,
+        })
+      }
+    } catch (err) {
+      // Re-push old record if delete succeeded but insert failed
       pushTransaction(userId, {
-        type: updated.type,
-        amount: updated.amount,
-        category: updated.category,
-        account: updated.account,
-        note: updated.note,
-        date: updated.date,
+        type: old.type, amount: old.amount, category: old.category,
+        account: old.account, note: old.note, date: old.date,
       }).catch(console.error)
+      console.error('Update cloud transaction failed:', err)
     }
   }
 }

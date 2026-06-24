@@ -1,9 +1,23 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db } from '../db'
 import { useAuth } from '../lib/AuthContext'
-import { fullResync, syncFromCloud } from '../lib/sync'
+import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
 import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw } from 'lucide-react'
+
+function isValidBackup(data: unknown): data is { transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[] } {
+  if (typeof data !== 'object' || data === null) return false
+  const d = data as Record<string, unknown>
+  if (d.transactions && !Array.isArray(d.transactions)) return false
+  if (d.categories && !Array.isArray(d.categories)) return false
+  if (d.accounts && !Array.isArray(d.accounts)) return false
+  if (d.transactions) {
+    for (const t of d.transactions as Record<string, unknown>[]) {
+      if (!t.type || !t.amount || !t.category || !t.date) return false
+    }
+  }
+  return true
+}
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -13,12 +27,14 @@ export default function Settings() {
   const [syncMsg, setSyncMsg] = useState('')
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
 
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeinstallprompt', (e) => {
+  useEffect(() => {
+    function onInstall(e: Event) {
       e.preventDefault()
       setInstallPrompt(e)
-    })
-  }
+    }
+    window.addEventListener('beforeinstallprompt', onInstall)
+    return () => window.removeEventListener('beforeinstallprompt', onInstall)
+  }, [])
 
   async function handleSync() {
     if (!user) return
@@ -72,6 +88,10 @@ export default function Settings() {
       const text = await file.text()
       try {
         const data = JSON.parse(text)
+        if (!isValidBackup(data)) {
+          alert('Invalid backup format. Required: transactions with type, amount, category, date.')
+          return
+        }
         if (data.transactions) {
           await db.transactions.clear()
           await db.transactions.bulkAdd(data.transactions)
@@ -94,12 +114,11 @@ export default function Settings() {
   }
 
   async function handleClearAll() {
-    await db.transactions.clear()
-    if (user) {
-      const { supabase } = await import(/* @vite-ignore */ '../lib/supabase')
-      await supabase.from('transactions').delete().eq('user_id', user.id)
-      await supabase.from('categories').delete().eq('user_id', user.id)
-      await supabase.from('accounts').delete().eq('user_id', user.id)
+    try {
+      if (user) await clearAllData(user.id)
+      else await db.transactions.clear()
+    } catch {
+      alert('Failed to clear cloud data. Try again.')
     }
     setShowConfirm(false)
   }
@@ -118,7 +137,6 @@ export default function Settings() {
       )}
 
       <div className="space-y-3">
-        {/* Cloud Sync */}
         <div className="bg-income/10 border border-income/30 rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-2">
             <Cloud size={18} className="text-income" />
@@ -198,7 +216,7 @@ export default function Settings() {
 
         {showConfirm ? (
           <div className="bg-expense/10 border border-expense rounded-2xl p-4">
-            <p className="text-sm font-medium mb-3">Delete all transactions? This cannot be undone.</p>
+            <p className="text-sm font-medium mb-3">Delete all data? This cannot be undone.</p>
             <div className="flex gap-2">
               <button
                 onClick={handleClearAll}
@@ -222,7 +240,7 @@ export default function Settings() {
             <Trash2 size={20} className="text-expense shrink-0" />
             <div>
               <div className="font-semibold text-sm text-expense">Clear All Data</div>
-              <div className="text-xs text-text-muted">Delete all transactions from local + cloud</div>
+              <div className="text-xs text-text-muted">Delete all data from local + cloud</div>
             </div>
           </button>
         )}
@@ -240,7 +258,7 @@ export default function Settings() {
       </div>
 
       <div className="mt-8 text-center text-text-muted text-xs">
-        <p>Expense Tracker v1.1</p>
+        <p>Expense Tracker v1.2</p>
         <p className="mt-1">Data synced to Supabase cloud</p>
       </div>
     </div>

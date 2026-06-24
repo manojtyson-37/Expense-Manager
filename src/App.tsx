@@ -10,11 +10,13 @@ import Accounts from './pages/Accounts'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import NavBar from './components/NavBar'
+import { Cloud } from 'lucide-react'
 
 export default function App() {
   const { user, loading } = useAuth()
   const lastSyncRef = useRef(0)
   const syncingRef = useRef(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -26,9 +28,13 @@ export default function App() {
     if (now - lastSyncRef.current < 5000) return
     lastSyncRef.current = now
     syncingRef.current = true
+    setIsSyncing(true)
     syncFromCloud(user.id)
       .catch(console.error)
-      .finally(() => { syncingRef.current = false })
+      .finally(() => {
+        syncingRef.current = false
+        setIsSyncing(false)
+      })
   }, [user])
 
   useEffect(() => { sync() }, [sync])
@@ -55,6 +61,12 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-svh pb-20">
+      {isSyncing && (
+        <div className="flex items-center justify-center gap-1.5 py-1.5 bg-primary/10 text-primary text-xs font-medium">
+          <Cloud size={12} className="animate-pulse" />
+          Syncing...
+        </div>
+      )}
       <Routes>
         <Route path="/" element={<Dashboard month={currentMonth} onMonthChange={setCurrentMonth} />} />
         <Route path="/transactions" element={<Transactions month={currentMonth} onMonthChange={setCurrentMonth} />} />

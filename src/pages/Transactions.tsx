@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { useTransactions, deleteTransaction } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
-import { Download } from 'lucide-react'
+import { Download, Search, X } from 'lucide-react'
 
 interface Props {
   month: string
@@ -14,7 +15,9 @@ function exportCSV(transactions: { type: string; amount: number; category: strin
   const header = 'Date,Type,Category,Account,Amount,Note'
   const rows = transactions.map(t => {
     const note = t.note.replace(/"/g, '""').replace(/\n/g, ' ')
-    return `${t.date},${t.type},${t.category},${t.account || ''},${t.type === 'expense' ? '-' : ''}${t.amount.toFixed(2)},"${note}"`
+    const cat = `"${t.category.replace(/"/g, '""')}"`
+    const acc = `"${(t.account || '').replace(/"/g, '""')}"`
+    return `${t.date},${t.type},${cat},${acc},${t.type === 'expense' ? '-' : ''}${t.amount.toFixed(2)},"${note}"`
   })
   const csv = [header, ...rows].join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
@@ -30,7 +33,17 @@ export default function Transactions({ month, onMonthChange }: Props) {
   const { transactions } = useTransactions(month)
   const categories = useCategories()
   const accounts = useAccounts()
-  const list = transactions || []
+  const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+
+  const list = (transactions || []).filter(t => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return t.category.toLowerCase().includes(q)
+      || t.note.toLowerCase().includes(q)
+      || t.account.toLowerCase().includes(q)
+      || t.amount.toString().includes(q)
+  })
 
   const grouped = new Map<string, typeof list>()
   for (const t of list) {
@@ -43,21 +56,42 @@ export default function Transactions({ month, onMonthChange }: Props) {
     <div className="flex-1">
       <div className="flex items-center justify-between px-4 pt-2">
         <h1 className="text-lg font-bold">Transactions</h1>
-        {list.length > 0 && (
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => exportCSV(list)}
+            onClick={() => setShowSearch(!showSearch)}
             className="p-2 rounded-full text-text-muted active:bg-surface-light"
           >
-            <Download size={20} />
+            {showSearch ? <X size={20} /> : <Search size={20} />}
           </button>
-        )}
+          {list.length > 0 && (
+            <button
+              onClick={() => exportCSV(list)}
+              className="p-2 rounded-full text-text-muted active:bg-surface-light"
+            >
+              <Download size={20} />
+            </button>
+          )}
+        </div>
       </div>
+
+      {showSearch && (
+        <div className="px-4 pb-2">
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by category, note, account, amount..."
+            autoFocus
+          />
+        </div>
+      )}
+
       <MonthPicker month={month} onChange={onMonthChange} />
 
       <div className="space-y-4 px-4">
         {list.length === 0 ? (
           <div className="py-20 text-center text-text-muted text-sm">
-            No transactions this month.
+            {search ? 'No matching transactions.' : 'No transactions this month.'}
           </div>
         ) : (
           Array.from(grouped.entries()).map(([date, items]) => (

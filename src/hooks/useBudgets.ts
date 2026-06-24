@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Budget } from '../db'
+import { db } from '../db'
 import { supabase } from '../lib/supabase'
 import { getUserId } from '../lib/sync'
 

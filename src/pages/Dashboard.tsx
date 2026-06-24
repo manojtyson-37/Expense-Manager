@@ -84,8 +84,6 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const expenseDelta = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : 0
   const incomeDelta = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0
 
-  const budgetMap = new Map((budgets || []).map(b => [b.category, b.limit]))
-
   const today = new Date().toISOString().slice(0, 10)
   const todaySpent = transactions
     ?.filter(t => t.date === today && t.type === 'expense')

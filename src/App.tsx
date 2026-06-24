@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
 import Dashboard from './pages/Dashboard'
@@ -18,11 +18,23 @@ export default function App() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
 
-  useEffect(() => {
-    if (user) {
-      syncFromCloud(user.id).catch(console.error)
-    }
+  const sync = useCallback(() => {
+    if (user) syncFromCloud(user.id).catch(console.error)
   }, [user])
+
+  useEffect(() => { sync() }, [sync])
+
+  // Pull-on-focus: sync when app comes back to foreground
+  useEffect(() => {
+    function onFocus() { sync() }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') sync()
+    })
+    return () => {
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [sync])
 
   if (loading) {
     return (

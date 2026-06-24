@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/useAccounts'
 import type { AccountType, Account } from '../db'
-import { Trash2, Plus, ArrowLeft, X } from 'lucide-react'
+import { Plus, ArrowLeft, X } from 'lucide-react'
+import DeleteButton from '../components/DeleteButton'
 import { useNavigate } from 'react-router-dom'
 
 const ACCOUNT_TYPES: { type: AccountType; label: string; icon: string }[] = [
@@ -172,12 +173,7 @@ export default function Accounts() {
                         {acc.icon}
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); deleteAccount(acc.id!) }}
-                        className="p-2 text-text-muted active:text-expense"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <DeleteButton onConfirm={() => deleteAccount(acc.id!)} />
                     </div>
                   ))}
                 </div>

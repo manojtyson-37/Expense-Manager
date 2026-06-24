@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trash2 } from 'lucide-react'
 import type { Transaction, Category, Account } from '../db'
+import DeleteButton from './DeleteButton'
 
 interface Props {
   transaction: Transaction
@@ -12,20 +11,8 @@ interface Props {
 
 export default function TransactionItem({ transaction, categories, accounts, onDelete }: Props) {
   const navigate = useNavigate()
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const cat = categories?.find(c => c.name === transaction.category)
   const acc = accounts?.find(a => a.name === transaction.account)
-
-  function handleDelete(e: React.MouseEvent) {
-    e.stopPropagation()
-    if (confirmDelete) {
-      onDelete(transaction.id!)
-      setConfirmDelete(false)
-    } else {
-      setConfirmDelete(true)
-      setTimeout(() => setConfirmDelete(false), 3000)
-    }
-  }
 
   return (
     <div
@@ -48,21 +35,7 @@ export default function TransactionItem({ transaction, categories, accounts, onD
         <span className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
           {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
         </span>
-        {confirmDelete ? (
-          <button
-            onClick={handleDelete}
-            className="px-2 py-1 rounded-lg bg-expense text-white text-[10px] font-medium"
-          >
-            Confirm
-          </button>
-        ) : (
-          <button
-            onClick={handleDelete}
-            className="p-1.5 rounded-full text-text-muted active:bg-surface-light"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
+        <DeleteButton onConfirm={() => onDelete(transaction.id!)} size={14} />
       </div>
     </div>
   )

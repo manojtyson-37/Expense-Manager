@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useCategories, addCategory, updateCategory, deleteCategory } from '../hooks/useCategories'
 import type { Category } from '../db'
-import { Trash2, Plus, X } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
+import DeleteButton from '../components/DeleteButton'
 
 const ICONS = ['💰', '💻', '📈', '🎁', '🍔', '🚗', '🛍️', '📄', '🎬', '🏥', '📚', '🛒', '🏠', '⚡', '📦', '✈️', '💊', '🎮', '👕', '💅']
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#a855f7', '#64748b']
@@ -66,12 +67,7 @@ export default function Categories() {
                 {c.icon}
               </div>
               <span className="flex-1 text-sm font-medium">{c.name}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteCategory(c.id!) }}
-                className="p-2 text-text-muted active:text-expense"
-              >
-                <Trash2 size={16} />
-              </button>
+              <DeleteButton onConfirm={() => deleteCategory(c.id!)} />
             </div>
           ))}
         </div>

@@ -9,29 +9,37 @@ async function getUserId(): Promise<string | null> {
 export { getUserId }
 
 async function ensureDefaultCategories(userId: string) {
+  // Check both local and cloud to avoid duplicates
   const existing = await db.categories.toArray()
   const existingNames = new Set(existing.map(c => c.name))
 
-  // Check cloud for tombstones (defaults the user deliberately deleted)
-  const { data: tombstones } = await supabase
+  const { data: allCloud } = await supabase
     .from('categories')
-    .select('name')
+    .select('name, type')
     .eq('user_id', userId)
-    .eq('type', '_deleted')
-  const deletedNames = new Set((tombstones || []).map(t => t.name))
-
-  const missing = DEFAULT_CATEGORIES.filter(c =>
-    !existingNames.has(c.name) && !deletedNames.has(c.name)
+  const cloudNames = new Set((allCloud || []).map(c => c.name))
+  const deletedNames = new Set(
+    (allCloud || []).filter(c => c.type === '_deleted').map(c => c.name)
   )
 
-  if (missing.length === 0) return
+  // Only add defaults missing from BOTH local and cloud, and not tombstoned
+  const missingLocal = DEFAULT_CATEGORIES.filter(c =>
+    !existingNames.has(c.name) && !deletedNames.has(c.name)
+  )
+  const missingCloud = DEFAULT_CATEGORIES.filter(c =>
+    !cloudNames.has(c.name) && !deletedNames.has(c.name)
+  )
 
-  await db.categories.bulkAdd(missing as Category[])
+  if (missingLocal.length > 0) {
+    await db.categories.bulkAdd(missingLocal as Category[])
+  }
 
-  const rows = missing.map(c => ({
-    user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
-  }))
-  await supabase.from('categories').insert(rows)
+  if (missingCloud.length > 0) {
+    const rows = missingCloud.map(c => ({
+      user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
+    }))
+    await supabase.from('categories').insert(rows)
+  }
 }
 
 export async function syncFromCloud(userId: string) {
@@ -66,9 +74,16 @@ export async function syncFromCloud(userId: string) {
     if (catErr) throw catErr
 
     const activeCats = (cloudCats || []).filter(c => c.type !== '_deleted')
-    if (activeCats.length > 0) {
+    // Dedup by name — keep first occurrence
+    const seen = new Set<string>()
+    const dedupedCats = activeCats.filter(c => {
+      if (seen.has(c.name)) return false
+      seen.add(c.name)
+      return true
+    })
+    if (dedupedCats.length > 0) {
       await db.categories.clear()
-      const local = activeCats.map(c => ({
+      const local = dedupedCats.map(c => ({
         name: c.name,
         type: c.type as 'income' | 'expense',
         icon: c.icon,

@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
 import Dashboard from './pages/Dashboard'
@@ -13,27 +13,32 @@ import NavBar from './components/NavBar'
 
 export default function App() {
   const { user, loading } = useAuth()
+  const lastSyncRef = useRef(0)
+  const syncingRef = useRef(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
 
   const sync = useCallback(() => {
-    if (user) syncFromCloud(user.id).catch(console.error)
+    if (!user || syncingRef.current) return
+    const now = Date.now()
+    if (now - lastSyncRef.current < 5000) return
+    lastSyncRef.current = now
+    syncingRef.current = true
+    syncFromCloud(user.id)
+      .catch(console.error)
+      .finally(() => { syncingRef.current = false })
   }, [user])
 
   useEffect(() => { sync() }, [sync])
 
-  // Pull-on-focus: sync when app comes back to foreground
   useEffect(() => {
-    function onFocus() { sync() }
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', () => {
+    function onVisible() {
       if (document.visibilityState === 'visible') sync()
-    })
-    return () => {
-      window.removeEventListener('focus', onFocus)
     }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [sync])
 
   if (loading) {

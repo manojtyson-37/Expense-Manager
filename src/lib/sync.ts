@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, type Transaction, type Category, type Account, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, type Transaction, type Category, type Account, type Budget, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -96,6 +96,18 @@ export async function syncFromCloud(userId: string) {
           localAccs.map(a => ({ user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color }))
         )
       }
+    }
+
+    // Pull budgets
+    const { data: cloudBudgets } = await supabase
+      .from('budgets').select('*').eq('user_id', userId)
+    if (cloudBudgets && cloudBudgets.length > 0) {
+      await db.budgets.clear()
+      await db.budgets.bulkAdd(cloudBudgets.map(b => ({
+        category: b.category,
+        limit: Number(b.limit_amount),
+        month: b.month,
+      })) as Budget[])
     }
   } catch (err) {
     console.error('Sync from cloud failed:', err)

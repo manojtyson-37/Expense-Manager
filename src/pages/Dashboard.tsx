@@ -1,10 +1,11 @@
 import { useTransactions } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
+import { useBudgets } from '../hooks/useBudgets'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction } from '../hooks/useTransactions'
-import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 interface Props {
@@ -58,10 +59,18 @@ function formatAmount(n: number): string {
   return `₹${n.toFixed(0)}`
 }
 
+function prevMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default function Dashboard({ month, onMonthChange }: Props) {
   const { transactions, totals, categoryTotals } = useTransactions(month)
+  const { totals: prevTotals } = useTransactions(prevMonth(month))
   const categories = useCategories()
   const accounts = useAccounts()
+  const budgets = useBudgets(month)
   const navigate = useNavigate()
 
   const recentTransactions = transactions?.slice(0, 5) || []
@@ -69,6 +78,13 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const totalExpense = totals?.expense || 0
   const totalIncome = totals?.income || 0
   const balance = totals?.balance || 0
+  const prevExpense = prevTotals?.expense || 0
+  const prevIncome = prevTotals?.income || 0
+
+  const expenseDelta = prevExpense > 0 ? ((totalExpense - prevExpense) / prevExpense) * 100 : 0
+  const incomeDelta = prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : 0
+
+  const budgetMap = new Map((budgets || []).map(b => [b.category, b.limit]))
 
   const today = new Date().toISOString().slice(0, 10)
   const todaySpent = transactions
@@ -106,6 +122,12 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             <div>
               <div className="text-[10px] text-text-muted">Income</div>
               <div className="text-sm font-semibold text-income">{formatAmount(totalIncome)}</div>
+              {prevIncome > 0 && (
+                <div className={`text-[9px] flex items-center gap-0.5 ${incomeDelta >= 0 ? 'text-income' : 'text-expense'}`}>
+                  {incomeDelta >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                  {Math.abs(incomeDelta).toFixed(0)}% vs last
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -115,7 +137,12 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             <div>
               <div className="text-[10px] text-text-muted">Expense</div>
               <div className="text-sm font-semibold text-expense">{formatAmount(totalExpense)}</div>
-            </div>
+              {prevExpense > 0 && (
+                <div className={`text-[9px] flex items-center gap-0.5 ${expenseDelta <= 0 ? 'text-income' : 'text-expense'}`}>
+                  {expenseDelta <= 0 ? <TrendingDown size={8} /> : <TrendingUp size={8} />}
+                  {Math.abs(expenseDelta).toFixed(0)}% vs last
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -174,6 +201,49 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                 })}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Progress */}
+      {budgets && budgets.length > 0 && (
+        <div className="px-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Budget Tracker</h2>
+            <button onClick={() => navigate('/budgets')} className="text-xs text-primary font-medium">Manage</button>
+          </div>
+          <div className="bg-surface rounded-2xl p-4 space-y-3">
+            {budgets.map(b => {
+              const cat = categories?.find(c => c.name === b.category)
+              const spent = expenseCategories.find(c => c.category === b.category)?.total || 0
+              const pct = Math.min((spent / b.limit) * 100, 100)
+              const over = spent > b.limit
+              return (
+                <div key={b.id}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <span>{cat?.icon || '📦'}</span>
+                      <span>{b.category}</span>
+                    </span>
+                    <span className={over ? 'text-expense font-medium' : 'text-text-muted'}>
+                      ₹{spent.toLocaleString('en-IN')} / ₹{b.limit.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-surface-light rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: over ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981',
+                      }}
+                    />
+                  </div>
+                  {over && (
+                    <p className="text-[9px] text-expense mt-0.5">Over by ₹{(spent - b.limit).toLocaleString('en-IN')}</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

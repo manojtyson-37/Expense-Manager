@@ -7,6 +7,7 @@ import Transactions from './pages/Transactions'
 import AddTransaction from './pages/AddTransaction'
 import Categories from './pages/Categories'
 import Accounts from './pages/Accounts'
+import Budgets from './pages/Budgets'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import NavBar from './components/NavBar'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="/edit/:id" element={<AddTransaction />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/accounts" element={<Accounts />} />
+        <Route path="/budgets" element={<Budgets month={currentMonth} />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       <NavBar />

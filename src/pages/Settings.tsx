@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { db, type Transaction, type Category, type Account } from '../db'
 import { useAuth } from '../lib/AuthContext'
 import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
-import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw } from 'lucide-react'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target } from 'lucide-react'
 
 function isValidBackup(data: unknown): data is { transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[] } {
   if (typeof data !== 'object' || data === null) return false
@@ -176,6 +176,17 @@ export default function Settings() {
           <div>
             <div className="font-semibold text-sm">Accounts</div>
             <div className="text-xs text-text-muted">Manage credit cards, UPI, cash accounts</div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/budgets')}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+        >
+          <Target size={20} className="text-accent shrink-0" />
+          <div>
+            <div className="font-semibold text-sm">Budgets</div>
+            <div className="text-xs text-text-muted">Set monthly spending limits per category</div>
           </div>
         </button>
 

@@ -29,10 +29,18 @@ export interface Account {
   color: string
 }
 
+export interface Budget {
+  id?: number
+  category: string
+  limit: number
+  month: string // YYYY-MM
+}
+
 const db = new Dexie('ExpenseTracker') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
   categories: EntityTable<Category, 'id'>
   accounts: EntityTable<Account, 'id'>
+  budgets: EntityTable<Budget, 'id'>
 }
 
 db.version(1).stores({
@@ -44,6 +52,13 @@ db.version(2).stores({
   transactions: '++id, type, category, account, date, createdAt',
   categories: '++id, name, type',
   accounts: '++id, name, type',
+})
+
+db.version(3).stores({
+  transactions: '++id, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
 })
 
 export async function seedAccounts() {

@@ -2,7 +2,7 @@ import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useCategories, addCategory, updateCategory, deleteCategory } from '../hooks/useCategories'
 import type { Category } from '../db'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Pencil } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
@@ -78,6 +78,7 @@ export default function Categories() {
                 <IconRenderer icon={c.icon} size={18} />
               </div>
               <span className="flex-1 text-sm font-medium">{c.name}</span>
+              <Pencil size={15} className="text-text-muted" />
               <DeleteButton onConfirm={() => handleDelete(c)} />
             </div>
           ))}

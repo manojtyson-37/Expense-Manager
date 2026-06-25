@@ -2,7 +2,7 @@ import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/useAccounts'
 import type { AccountType, Account } from '../db'
-import { Plus, ArrowLeft, X } from 'lucide-react'
+import { Plus, ArrowLeft, X, Pencil } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
@@ -177,6 +177,7 @@ export default function Accounts() {
                         <IconRenderer icon={acc.icon} size={18} />
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
+                      <Pencil size={15} className="text-text-muted" />
                       <DeleteButton onConfirm={() => scheduleDelete(`"${acc.name}" deleted`, () => deleteAccount(acc.id!))} />
                     </div>
                   ))}

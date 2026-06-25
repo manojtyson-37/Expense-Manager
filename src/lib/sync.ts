@@ -75,9 +75,15 @@ export async function syncFromCloud(userId: string) {
     }
 
     const cats: any[] = [...(cloudCats || [])]
-    const cloudCatNames = new Set(cats.map(c => c.name)) // includes _deleted tombstones
+    // Compare against ACTIVE cloud names only. A local category that matches a
+    // _deleted tombstone is one the user re-added after deleting — pushCategory
+    // clears the tombstone so it resurrects instead of being wiped by the
+    // clear()+replace below.
+    const cloudActiveCatNames = new Set(
+      cats.filter(c => c.type !== '_deleted').map(c => c.name)
+    )
     for (const c of await db.categories.toArray()) {
-      if (cloudCatNames.has(c.name)) continue
+      if (cloudActiveCatNames.has(c.name)) continue
       await pushCategory(userId, { name: c.name, type: c.type, icon: c.icon, color: c.color })
       cats.push(c)
     }
@@ -182,6 +188,11 @@ export async function deleteCloudTransaction(userId: string, t: Transaction) {
 }
 
 export async function pushCategory(userId: string, c: Omit<Category, 'id'>) {
+  // Re-adding a category clears any prior _deleted tombstone for that name, so
+  // the tombstone can't suppress it on the next sync (root cause of re-added
+  // tags vanishing after login).
+  await supabase.from('categories')
+    .delete().eq('user_id', userId).eq('name', c.name).eq('type', '_deleted')
   const { error } = await supabase.from('categories').insert({
     user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
   })

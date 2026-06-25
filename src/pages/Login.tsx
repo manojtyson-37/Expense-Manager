@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { Lock, Mail, KeyRound, ArrowLeft } from 'lucide-react'
+import { Lock, Mail } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -9,11 +9,6 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-
-  // Password reset via emailed 6-digit code — no link to click.
-  const [resetMode, setResetMode] = useState(false)
-  const [code, setCode] = useState('')
-  const [newPassword, setNewPassword] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -45,46 +40,12 @@ export default function Login() {
     setLoading(true)
     setError('')
     setMessage('')
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
-    setLoading(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      setResetMode(true)
-      setMessage('We emailed you a 6-digit code. Enter it below with your new password.')
-    }
-  }
-
-  async function handleResetSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-    setMessage('')
-    // Verify the emailed code → this establishes a session for the account.
-    const { error: vErr } = await supabase.auth.verifyOtp({
-      email, token: code.trim(), type: 'recovery',
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
     })
-    if (vErr) {
-      setError(vErr.message || 'Invalid or expired code.')
-      setLoading(false)
-      return
-    }
-    // Now authenticated → set the new password.
-    const { error: uErr } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) setError(error.message)
+    else setMessage('Password reset link sent. Check your email.')
     setLoading(false)
-    if (uErr) {
-      setError(uErr.message)
-      return
-    }
-    // Session is active → onAuthStateChange logs the user in and App renders the app.
-  }
-
-  function exitReset() {
-    setResetMode(false)
-    setCode('')
-    setNewPassword('')
-    setError('')
-    setMessage('')
   }
 
   return (
@@ -103,137 +64,74 @@ export default function Login() {
           <p className="text-text-muted text-sm mt-1.5">Track every rupee, never lose data</p>
         </div>
 
-        {resetMode ? (
-          <form onSubmit={handleResetSubmit} className="space-y-3">
-            <div className="flex items-center gap-2 mb-1">
-              <button type="button" onClick={exitReset} className="p-1 -ml-1 text-text-muted">
-                <ArrowLeft size={18} />
-              </button>
-              <span className="text-sm font-semibold">Reset password</span>
-            </div>
-            <p className="text-text-muted text-xs">Code sent to {email}</p>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="relative">
+            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Email"
+              style={{ paddingLeft: '2.75rem' }}
+              required
+            />
+          </div>
+          <div className="relative">
+            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Password"
+              style={{ paddingLeft: '2.75rem' }}
+              minLength={6}
+              required
+            />
+          </div>
 
-            <div className="relative">
-              <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={e => setCode(e.target.value)}
-                placeholder="6-digit code"
-                style={{ paddingLeft: '2.75rem', letterSpacing: '0.2em' }}
-                required
-              />
-            </div>
-            <div className="relative">
-              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="password"
-                value={newPassword}
-                onChange={e => setNewPassword(e.target.value)}
-                placeholder="New password"
-                style={{ paddingLeft: '2.75rem' }}
-                minLength={6}
-                required
-              />
-            </div>
+          {error && (
+            <div className="text-expense text-xs bg-expense/10 border border-expense/20 rounded-xl px-3 py-2.5">{error}</div>
+          )}
+          {message && (
+            <div className="text-income text-xs bg-income/10 border border-income/20 rounded-xl px-3 py-2.5">{message}</div>
+          )}
 
-            {error && (
-              <div className="text-expense text-xs bg-expense/10 border border-expense/20 rounded-xl px-3 py-2.5">{error}</div>
-            )}
-            {message && (
-              <div className="text-income text-xs bg-income/10 border border-income/20 rounded-xl px-3 py-2.5">{message}</div>
-            )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 bg-primary rounded-xl text-white font-semibold disabled:opacity-50 active:bg-primary-dark transition-colors mt-1"
+          >
+            {loading ? '...' : isSignUp ? 'Create Account' : 'Sign In'}
+          </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-primary rounded-xl text-white font-semibold disabled:opacity-50 active:bg-primary-dark transition-colors mt-1"
-            >
-              {loading ? '...' : 'Set new password'}
-            </button>
+          {!isSignUp && (
             <button
               type="button"
               onClick={handleForgot}
               disabled={loading}
               className="w-full text-center text-xs text-text-muted py-1 disabled:opacity-50"
             >
-              Resend code
+              Forgot password?
             </button>
-          </form>
-        ) : (
-          <>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="Email"
-                  style={{ paddingLeft: '2.75rem' }}
-                  required
-                />
-              </div>
-              <div className="relative">
-                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Password"
-                  style={{ paddingLeft: '2.75rem' }}
-                  minLength={6}
-                  required
-                />
-              </div>
+          )}
+        </form>
 
-              {error && (
-                <div className="text-expense text-xs bg-expense/10 border border-expense/20 rounded-xl px-3 py-2.5">{error}</div>
-              )}
-              {message && (
-                <div className="text-income text-xs bg-income/10 border border-income/20 rounded-xl px-3 py-2.5">{message}</div>
-              )}
+        <button
+          onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage('') }}
+          className="w-full text-center text-sm text-text-muted mt-5 py-2"
+        >
+          {isSignUp
+            ? <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
+            : <>New here? <span className="text-primary font-medium">Create account</span></>
+          }
+        </button>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-primary rounded-xl text-white font-semibold disabled:opacity-50 active:bg-primary-dark transition-colors mt-1"
-              >
-                {loading ? '...' : isSignUp ? 'Create Account' : 'Sign In'}
-              </button>
-
-              {!isSignUp && (
-                <button
-                  type="button"
-                  onClick={handleForgot}
-                  disabled={loading}
-                  className="w-full text-center text-xs text-text-muted py-1 disabled:opacity-50"
-                >
-                  Forgot password?
-                </button>
-              )}
-            </form>
-
-            <button
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage('') }}
-              className="w-full text-center text-sm text-text-muted mt-5 py-2"
-            >
-              {isSignUp
-                ? <>Already have an account? <span className="text-primary font-medium">Sign in</span></>
-                : <>New here? <span className="text-primary font-medium">Create account</span></>
-              }
-            </button>
-
-            <div className="mt-8 text-center">
-              <p className="text-text-muted text-xs leading-relaxed">
-                Syncs to cloud automatically
-                <br />Works offline · Data encrypted
-              </p>
-            </div>
-          </>
-        )}
+        <div className="mt-8 text-center">
+          <p className="text-text-muted text-xs leading-relaxed">
+            Syncs to cloud automatically
+            <br />Works offline · Data encrypted
+          </p>
+        </div>
       </div>
     </div>
   )

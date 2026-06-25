@@ -1,3 +1,4 @@
+import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/useAccounts'
 import type { AccountType, Account } from '../db'
@@ -170,7 +171,7 @@ export default function Accounts() {
                         className="w-9 h-9 rounded-full flex items-center justify-center text-sm"
                         style={{ backgroundColor: acc.color + '20' }}
                       >
-                        {acc.icon}
+                        <IconRenderer icon={acc.icon} size={18} />
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
                       <DeleteButton onConfirm={() => deleteAccount(acc.id!)} />

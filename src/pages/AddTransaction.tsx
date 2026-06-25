@@ -1,3 +1,4 @@
+import IconRenderer from '../components/IconRenderer'
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
@@ -135,7 +136,7 @@ export default function AddTransaction() {
                     : 'bg-surface border border-transparent'
                 }`}
               >
-                <span className="text-lg">{c.icon}</span>
+                <IconRenderer icon={c.icon} size={20} />
                 <span className="whitespace-nowrap">{c.name}</span>
               </button>
             ))}
@@ -158,7 +159,7 @@ export default function AddTransaction() {
                       : 'bg-surface border border-transparent'
                   }`}
                 >
-                  <span>{acc.icon}</span>
+                  <IconRenderer icon={acc.icon} size={14} />
                   <span>{acc.name}</span>
                 </button>
               ))}

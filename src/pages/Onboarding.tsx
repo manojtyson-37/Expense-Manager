@@ -1,3 +1,4 @@
+import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { addAccount } from '../hooks/useAccounts'
 import { useAccounts } from '../hooks/useAccounts'
@@ -69,7 +70,7 @@ export default function Onboarding({ onComplete }: Props) {
                   : 'bg-surface border-2 border-transparent active:bg-surface-light'
               }`}
             >
-              <span className="text-2xl">{acc.icon}</span>
+              <IconRenderer icon={acc.icon} size={28} />
               <div>
                 <div className="text-sm font-medium">{acc.name}</div>
                 {added.has(acc.name) && (
@@ -129,7 +130,7 @@ export default function Onboarding({ onComplete }: Props) {
             <div className="flex flex-wrap gap-1.5">
               {accounts?.map(a => (
                 <span key={a.id} className="text-xs bg-surface px-2 py-1 rounded-lg">
-                  {a.icon} {a.name}
+                  <IconRenderer icon={a.icon} size={12} className="inline-block align-middle mr-1" />{a.name}
                 </span>
               ))}
             </div>

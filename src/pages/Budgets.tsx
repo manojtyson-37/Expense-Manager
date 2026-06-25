@@ -1,3 +1,4 @@
+import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useCategories } from '../hooks/useCategories'
 import { useBudgets, setBudget, deleteBudget } from '../hooks/useBudgets'
@@ -66,7 +67,7 @@ export default function Budgets({ month }: Props) {
                   className="w-8 h-8 rounded-full flex items-center justify-center text-sm"
                   style={{ backgroundColor: cat.color + '20' }}
                 >
-                  {cat.icon}
+                  <IconRenderer icon={cat.icon} size={16} />
                 </div>
                 <span className="flex-1 text-sm font-medium">{cat.name}</span>
                 {budget && !isEditing && (

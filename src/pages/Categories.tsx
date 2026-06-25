@@ -1,3 +1,4 @@
+import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useCategories, addCategory, updateCategory, deleteCategory } from '../hooks/useCategories'
 import type { Category } from '../db'
@@ -64,7 +65,7 @@ export default function Categories() {
                 className="w-9 h-9 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: c.color + '20' }}
               >
-                {c.icon}
+                <IconRenderer icon={c.icon} size={18} />
               </div>
               <span className="flex-1 text-sm font-medium">{c.name}</span>
               <DeleteButton onConfirm={() => deleteCategory(c.id!)} />

@@ -5,6 +5,8 @@ import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { Download, Search, X } from 'lucide-react'
+import UndoToast from '../components/UndoToast'
+import { useUndoDelete } from '../hooks/useUndoDelete'
 
 interface Props {
   month: string
@@ -35,6 +37,7 @@ export default function Transactions({ month, onMonthChange }: Props) {
   const accounts = useAccounts()
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
+  const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const list = (transactions || []).filter(t => {
     if (!search) return true
@@ -103,13 +106,17 @@ export default function Transactions({ month, onMonthChange }: Props) {
               </div>
               <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                 {items.map(t => (
-                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={deleteTransaction} />
+                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id))} />
                 ))}
               </div>
             </div>
           ))
         )}
       </div>
+
+      {toast && (
+        <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />
+      )}
     </div>
   )
 }

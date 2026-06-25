@@ -8,6 +8,8 @@ import { deleteTransaction } from '../hooks/useTransactions'
 import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import IconRenderer from '../components/IconRenderer'
+import UndoToast from '../components/UndoToast'
+import { useUndoDelete } from '../hooks/useUndoDelete'
 
 interface Props {
   month: string
@@ -73,6 +75,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const accounts = useAccounts()
   const budgets = useBudgets(month)
   const navigate = useNavigate()
+  const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const recentTransactions = transactions?.slice(0, 5) || []
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
@@ -265,11 +268,15 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             </div>
           ) : (
             recentTransactions.map(t => (
-              <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={deleteTransaction} />
+              <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id))} />
             ))
           )}
         </div>
       </div>
+
+      {toast && (
+        <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />
+      )}
     </div>
   )
 }

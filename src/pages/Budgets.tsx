@@ -6,6 +6,8 @@ import { useTransactions } from '../hooks/useTransactions'
 import { ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DeleteButton from '../components/DeleteButton'
+import UndoToast from '../components/UndoToast'
+import { useUndoDelete } from '../hooks/useUndoDelete'
 
 interface Props {
   month: string
@@ -18,6 +20,7 @@ export default function Budgets({ month }: Props) {
   const { categoryTotals } = useTransactions(month)
   const [editingCat, setEditingCat] = useState<string | null>(null)
   const [limitVal, setLimitVal] = useState('')
+  const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const expenseTotals = new Map(
     (categoryTotals || []).filter(c => c.type === 'expense').map(c => [c.category, c.total])
@@ -71,7 +74,7 @@ export default function Budgets({ month }: Props) {
                 </div>
                 <span className="flex-1 text-sm font-medium">{cat.name}</span>
                 {budget && !isEditing && (
-                  <DeleteButton onConfirm={() => deleteBudget(budget.id!)} size={14} />
+                  <DeleteButton onConfirm={() => scheduleDelete(`"${cat.name}" budget removed`, () => deleteBudget(budget.id!))} size={14} />
                 )}
               </div>
 
@@ -146,6 +149,10 @@ export default function Budgets({ month }: Props) {
           )
         })}
       </div>
+
+      {toast && (
+        <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />
+      )}
     </div>
   )
 }

@@ -61,3 +61,8 @@ input:focus, select:focus, textarea:focus {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1);
 }
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

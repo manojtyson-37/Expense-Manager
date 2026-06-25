@@ -4,6 +4,8 @@ import { useCategories, addCategory, updateCategory, deleteCategory } from '../h
 import type { Category } from '../db'
 import { Plus, X } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
+import UndoToast from '../components/UndoToast'
+import { useUndoDelete } from '../hooks/useUndoDelete'
 
 const ICONS = ['💰', '💻', '📈', '🎁', '🍔', '🚗', '🛍️', '📄', '🎬', '🏥', '📚', '🛒', '🏠', '⚡', '📦', '✈️', '💊', '🎮', '👕', '💅']
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#a855f7', '#64748b']
@@ -16,6 +18,7 @@ export default function Categories() {
   const [type, setType] = useState<'expense' | 'income'>('expense')
   const [icon, setIcon] = useState('📦')
   const [color, setColor] = useState('#6366f1')
+  const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const incomeCategories = categories?.filter(c => c.type === 'income') || []
   const expenseCategories = categories?.filter(c => c.type === 'expense') || []
@@ -53,6 +56,13 @@ export default function Categories() {
     closeForm()
   }
 
+  function handleDelete(cat: Category) {
+    scheduleDelete(
+      `"${cat.name}" deleted`,
+      () => deleteCategory(cat.id!),
+    )
+  }
+
   function renderList(items: Category[], label: string) {
     if (items.length === 0) return null
     return (
@@ -68,7 +78,7 @@ export default function Categories() {
                 <IconRenderer icon={c.icon} size={18} />
               </div>
               <span className="flex-1 text-sm font-medium">{c.name}</span>
-              <DeleteButton onConfirm={() => deleteCategory(c.id!)} />
+              <DeleteButton onConfirm={() => handleDelete(c)} />
             </div>
           ))}
         </div>
@@ -122,7 +132,7 @@ export default function Categories() {
                 <button
                   key={i}
                   onClick={() => setIcon(i)}
-                  className={`w-9 h-9 rounded-lg flex items-center justify-center ${
+                  className={`w-11 h-11 rounded-lg flex items-center justify-center ${
                     icon === i ? 'bg-primary/20 ring-2 ring-primary' : 'bg-surface-light'
                   }`}
                 >
@@ -138,7 +148,7 @@ export default function Categories() {
                 <button
                   key={c}
                   onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
+                  className={`w-11 h-11 rounded-full ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -155,6 +165,10 @@ export default function Categories() {
 
       {renderList(expenseCategories, 'Expenses')}
       {renderList(incomeCategories, 'Income')}
+
+      {toast && (
+        <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />
+      )}
     </div>
   )
 }

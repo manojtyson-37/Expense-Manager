@@ -4,6 +4,8 @@ import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/
 import type { AccountType, Account } from '../db'
 import { Plus, ArrowLeft, X } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
+import UndoToast from '../components/UndoToast'
+import { useUndoDelete } from '../hooks/useUndoDelete'
 import { useNavigate } from 'react-router-dom'
 
 const ACCOUNT_TYPES: { type: AccountType; label: string; icon: string }[] = [
@@ -24,6 +26,7 @@ export default function Accounts() {
   const [name, setName] = useState('')
   const [accountType, setAccountType] = useState<AccountType>('credit_card')
   const [color, setColor] = useState('#6366f1')
+  const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const selectedTypeInfo = ACCOUNT_TYPES.find(t => t.type === accountType)!
 
@@ -174,7 +177,7 @@ export default function Accounts() {
                         <IconRenderer icon={acc.icon} size={18} />
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
-                      <DeleteButton onConfirm={() => deleteAccount(acc.id!)} />
+                      <DeleteButton onConfirm={() => scheduleDelete(`"${acc.name}" deleted`, () => deleteAccount(acc.id!))} />
                     </div>
                   ))}
                 </div>
@@ -182,6 +185,10 @@ export default function Accounts() {
             )
           })}
         </div>
+      )}
+
+      {toast && (
+        <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />
       )}
     </div>
   )

@@ -38,6 +38,10 @@ async function ensureDefaultCategories(userId: string) {
   }
 }
 
+function txnKey(t: { type: string; amount: number; category: string; account?: string; note: string; date: string }): string {
+  return [t.type, t.amount, t.category, t.account || '', t.note, t.date].join('|')
+}
+
 export async function syncFromCloud(userId: string) {
   try {
     const { data: cloudTxns, error: txnErr } = await supabase
@@ -52,21 +56,55 @@ export async function syncFromCloud(userId: string) {
       .from('accounts').select('*').eq('user_id', userId)
     if (accErr) throw accErr
 
-    // All fetches succeeded — now write to local
-    if (cloudTxns && cloudTxns.length > 0) {
+    // MERGE GUARD: push local-only rows to cloud BEFORE the destructive
+    // clear()+replace below, so data added on this device (or whose earlier
+    // push silently failed) is never wiped by a stale cloud snapshot. The
+    // replace set then becomes the union of cloud + local.
+    // ponytail: a row deleted on another device but still present locally gets
+    // resurrected here — no tombstones for txns/accounts to detect that. Accept
+    // resurrection over data loss; add per-row sync flags if it ever matters.
+    const txns: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount) }))
+    const cloudTxnKeys = new Set(txns.map(txnKey))
+    for (const t of await db.transactions.toArray()) {
+      if (cloudTxnKeys.has(txnKey(t))) continue
+      await pushTransaction(userId, {
+        type: t.type, amount: t.amount, category: t.category,
+        account: t.account, note: t.note, date: t.date,
+      })
+      txns.push({ ...t, created_at: new Date(t.createdAt).toISOString() })
+    }
+
+    const cats: any[] = [...(cloudCats || [])]
+    const cloudCatNames = new Set(cats.map(c => c.name)) // includes _deleted tombstones
+    for (const c of await db.categories.toArray()) {
+      if (cloudCatNames.has(c.name)) continue
+      await pushCategory(userId, { name: c.name, type: c.type, icon: c.icon, color: c.color })
+      cats.push(c)
+    }
+
+    const accs: any[] = [...(cloudAccs || [])]
+    const cloudAccNames = new Set(accs.map(a => a.name))
+    for (const a of await db.accounts.toArray()) {
+      if (cloudAccNames.has(a.name)) continue
+      await pushAccount(userId, { name: a.name, type: a.type, icon: a.icon, color: a.color })
+      accs.push(a)
+    }
+
+    // Replace local with the merged set (safe now: includes local-only rows)
+    if (txns.length > 0) {
       await db.transactions.clear()
-      await db.transactions.bulkAdd(cloudTxns.map(t => ({
+      await db.transactions.bulkAdd(txns.map(t => ({
         type: t.type as 'income' | 'expense',
         amount: Number(t.amount),
         category: t.category,
         account: t.account || '',
         note: t.note,
         date: t.date,
-        createdAt: new Date(t.created_at).getTime(),
+        createdAt: t.created_at ? new Date(t.created_at).getTime() : Date.now(),
       })) as Transaction[])
     }
 
-    const activeCats = (cloudCats || []).filter(c => c.type !== '_deleted')
+    const activeCats = cats.filter(c => c.type !== '_deleted')
     const seen = new Set<string>()
     const dedupedCats = activeCats.filter(c => {
       if (seen.has(c.name)) return false
@@ -82,10 +120,10 @@ export async function syncFromCloud(userId: string) {
       await ensureDefaultCategories(userId)
     }
 
-    if (cloudAccs && cloudAccs.length > 0) {
+    if (accs.length > 0) {
       // Dedup by name
       const seenAcc = new Set<string>()
-      const dedupedAccs = cloudAccs.filter(a => {
+      const dedupedAccs = accs.filter(a => {
         if (seenAcc.has(a.name)) return false
         seenAcc.add(a.name)
         return true

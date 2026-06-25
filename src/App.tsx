@@ -10,14 +10,18 @@ import Accounts from './pages/Accounts'
 import Budgets from './pages/Budgets'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 import NavBar from './components/NavBar'
+import { useAccounts } from './hooks/useAccounts'
 import { Cloud } from 'lucide-react'
 
 export default function App() {
   const { user, loading } = useAuth()
+  const accounts = useAccounts()
   const lastSyncRef = useRef(0)
   const syncingRef = useRef(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [onboardingDone, setOnboardingDone] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -58,6 +62,10 @@ export default function App() {
 
   if (!user) {
     return <Login />
+  }
+
+  if (!onboardingDone && accounts !== undefined && accounts.length === 0) {
+    return <Onboarding onComplete={() => setOnboardingDone(true)} />
   }
 
   return (

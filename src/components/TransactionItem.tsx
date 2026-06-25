@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { Transaction, Category, Account } from '../db'
+import IconRenderer from './IconRenderer'
 import DeleteButton from './DeleteButton'
 
 interface Props {
@@ -20,23 +21,23 @@ export default function TransactionItem({ transaction, categories, accounts, onD
       className="flex items-center gap-3 px-4 py-3 active:bg-surface-light/50 cursor-pointer"
     >
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
+        className="w-11 h-11 rounded-full flex items-center justify-center shrink-0"
         style={{ backgroundColor: (cat?.color || '#10b981') + '20' }}
+        aria-label={transaction.category}
       >
-        {cat?.icon || '📦'}
+        <IconRenderer icon={cat?.icon || '📦'} size={20} color={cat?.color} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="font-medium text-sm truncate">{transaction.category}</div>
         <div className="text-xs text-text-muted truncate">
-          {acc ? `${acc.icon} ${acc.name}` : ''}{acc && transaction.note ? ' · ' : ''}{transaction.note || (!acc ? 'No note' : '')}
+          {acc ? <><IconRenderer icon={acc.icon} size={12} className="inline-block align-middle mr-1" />{acc.name}</> : null}
+          {acc && transaction.note ? ' · ' : ''}{transaction.note || (!acc ? '' : '')}
         </div>
       </div>
-      <div className="text-right shrink-0 flex items-center gap-2">
-        <span className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
-          {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
-        </span>
-        <DeleteButton onConfirm={() => onDelete(transaction.id!)} size={14} />
-      </div>
+      <span className={`font-semibold text-sm shrink-0 ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
+        {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
+      </span>
+      <DeleteButton onConfirm={() => onDelete(transaction.id!)} size={14} />
     </div>
   )
 }

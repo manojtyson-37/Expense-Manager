@@ -21,14 +21,14 @@ export default function MonthPicker({ month, onChange }: Props) {
     <div className="flex items-center justify-center gap-4 px-4 py-3">
       <button
         onClick={() => onChange(shiftMonth(month, -1))}
-        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
+        className="w-11 h-11 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
       >
         <ChevronLeft size={18} />
       </button>
       <span className="font-semibold text-sm min-w-[140px] text-center">{formatMonth(month)}</span>
       <button
         onClick={() => onChange(shiftMonth(month, 1))}
-        className="w-8 h-8 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
+        className="w-11 h-11 rounded-full flex items-center justify-center text-text-muted active:bg-surface-light transition-colors"
       >
         <ChevronRight size={18} />
       </button>

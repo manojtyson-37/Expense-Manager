@@ -16,7 +16,7 @@ export default function DeleteButton({ onConfirm, size = 16 }: Props) {
       setConfirming(false)
     } else {
       setConfirming(true)
-      setTimeout(() => setConfirming(false), 3000)
+      setTimeout(() => setConfirming(false), 5000)
     }
   }
 
@@ -24,9 +24,9 @@ export default function DeleteButton({ onConfirm, size = 16 }: Props) {
     return (
       <button
         onClick={handleClick}
-        className="px-2 py-1 rounded-lg bg-expense text-white text-[10px] font-medium"
+        className="px-3 py-2 rounded-xl bg-expense text-white text-xs font-semibold min-h-[44px] min-w-[44px] flex items-center justify-center"
       >
-        Confirm
+        Delete?
       </button>
     )
   }
@@ -34,7 +34,7 @@ export default function DeleteButton({ onConfirm, size = 16 }: Props) {
   return (
     <button
       onClick={handleClick}
-      className="p-2 text-text-muted active:text-expense"
+      className="p-3 text-text-muted active:text-expense min-h-[44px] min-w-[44px] flex items-center justify-center"
     >
       <Trash2 size={size} />
     </button>

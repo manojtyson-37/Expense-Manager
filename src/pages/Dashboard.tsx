@@ -7,6 +7,7 @@ import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction } from '../hooks/useTransactions'
 import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import IconRenderer from '../components/IconRenderer'
 
 interface Props {
   month: string
@@ -118,10 +119,10 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               <ArrowDownRight size={14} className="text-income" />
             </div>
             <div>
-              <div className="text-[10px] text-text-muted">Income</div>
+              <div className="text-xs text-text-muted">Income</div>
               <div className="text-sm font-semibold text-income">{formatAmount(totalIncome)}</div>
               {prevIncome > 0 && (
-                <div className={`text-[9px] flex items-center gap-0.5 ${incomeDelta >= 0 ? 'text-income' : 'text-expense'}`}>
+                <div className={`text-xs flex items-center gap-0.5 ${incomeDelta >= 0 ? 'text-income' : 'text-expense'}`}>
                   {incomeDelta >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
                   {Math.abs(incomeDelta).toFixed(0)}% vs last
                 </div>
@@ -133,10 +134,10 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               <ArrowUpRight size={14} className="text-expense" />
             </div>
             <div>
-              <div className="text-[10px] text-text-muted">Expense</div>
+              <div className="text-xs text-text-muted">Expense</div>
               <div className="text-sm font-semibold text-expense">{formatAmount(totalExpense)}</div>
               {prevExpense > 0 && (
-                <div className={`text-[9px] flex items-center gap-0.5 ${expenseDelta <= 0 ? 'text-income' : 'text-expense'}`}>
+                <div className={`text-xs flex items-center gap-0.5 ${expenseDelta <= 0 ? 'text-income' : 'text-expense'}`}>
                   {expenseDelta <= 0 ? <TrendingDown size={8} /> : <TrendingUp size={8} />}
                   {Math.abs(expenseDelta).toFixed(0)}% vs last
                 </div>
@@ -149,25 +150,25 @@ export default function Dashboard({ month, onMonthChange }: Props) {
       {/* Quick Stats Row */}
       <div className="px-4 flex gap-3 mb-5">
         <div className="flex-1 bg-surface rounded-2xl p-3.5">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">Today</div>
+          <div className="text-xs text-text-muted uppercase tracking-wider">Today</div>
           <div className="text-lg font-bold text-expense mt-0.5">
             {todaySpent > 0 ? `₹${todaySpent.toLocaleString('en-IN')}` : '₹0'}
           </div>
-          <div className="text-[10px] text-text-muted">spent today</div>
+          <div className="text-xs text-text-muted">spent today</div>
         </div>
         <div className="flex-1 bg-surface rounded-2xl p-3.5">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">Txns</div>
+          <div className="text-xs text-text-muted uppercase tracking-wider">Txns</div>
           <div className="text-lg font-bold mt-0.5">{transactions?.length || 0}</div>
-          <div className="text-[10px] text-text-muted">this month</div>
+          <div className="text-xs text-text-muted">this month</div>
         </div>
         <div className="flex-1 bg-surface rounded-2xl p-3.5">
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">Avg/Day</div>
+          <div className="text-xs text-text-muted uppercase tracking-wider">Avg/Day</div>
           <div className="text-lg font-bold text-accent mt-0.5">
             {totalExpense > 0
               ? `₹${Math.round(totalExpense / new Date().getDate())}`
               : '₹0'}
           </div>
-          <div className="text-[10px] text-text-muted">daily spend</div>
+          <div className="text-xs text-text-muted">daily spend</div>
         </div>
       </div>
 
@@ -181,7 +182,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               <div className="relative shrink-0">
                 <DonutChart segments={donutSegments} size={100} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-[10px] text-text-muted">Total</div>
+                  <div className="text-xs text-text-muted">Total</div>
                   <div className="text-sm font-bold">{formatAmount(totalExpense)}</div>
                 </div>
               </div>
@@ -193,7 +194,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                   return (
                     <div key={category} className="flex items-center gap-2 text-xs">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat?.color || '#64748b' }} />
-                      <span className="truncate flex-1">{cat?.icon} {category}</span>
+                      <span className="truncate flex-1 flex items-center gap-1"><IconRenderer icon={cat?.icon || '📦'} size={14} /> {category}</span>
                       <span className="text-text-muted shrink-0">{pct}%</span>
                     </div>
                   )
@@ -221,7 +222,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                 <div key={b.id}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="flex items-center gap-1.5">
-                      <span>{cat?.icon || '📦'}</span>
+                      <IconRenderer icon={cat?.icon || '📦'} size={16} />
                       <span>{b.category}</span>
                     </span>
                     <span className={over ? 'text-expense font-medium' : 'text-text-muted'}>
@@ -238,7 +239,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                     />
                   </div>
                   {over && (
-                    <p className="text-[9px] text-expense mt-0.5">Over by ₹{(spent - b.limit).toLocaleString('en-IN')}</p>
+                    <p className="text-xs text-expense mt-0.5">Over by ₹{(spent - b.limit).toLocaleString('en-IN')}</p>
                   )}
                 </div>
               )

@@ -100,7 +100,7 @@ export default function Login() {
         </button>
 
         <div className="mt-8 text-center">
-          <p className="text-text-muted text-[11px] leading-relaxed">
+          <p className="text-text-muted text-xs leading-relaxed">
             Syncs to cloud automatically
             <br />Works offline · Data encrypted
           </p>

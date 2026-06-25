@@ -28,7 +28,7 @@ export default function NavBar() {
               <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
                 <Icon size={24} strokeWidth={2.5} className="text-white" />
               </div>
-              <span className="text-[10px] font-medium text-primary">{label}</span>
+              <span className="text-xs font-medium text-primary">{label}</span>
             </button>
           )
         }
@@ -37,12 +37,12 @@ export default function NavBar() {
           <button
             key={path}
             onClick={() => navigate(path)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${
+            className={`flex flex-col items-center gap-0.5 px-4 py-2 min-h-[48px] transition-colors ${
               active ? 'text-primary' : 'text-text-muted'
             }`}
           >
             <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-            <span className="text-[10px] font-medium">{label}</span>
+            <span className="text-xs font-medium">{label}</span>
           </button>
         )
       })}

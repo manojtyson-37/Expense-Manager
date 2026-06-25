@@ -73,7 +73,7 @@ export default function Onboarding({ onComplete }: Props) {
               <div>
                 <div className="text-sm font-medium">{acc.name}</div>
                 {added.has(acc.name) && (
-                  <div className="text-[10px] text-primary">Added ✓</div>
+                  <div className="text-xs text-primary">Added ✓</div>
                 )}
               </div>
             </button>

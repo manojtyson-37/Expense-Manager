@@ -94,13 +94,13 @@ export default function Budgets({ month }: Props) {
                     />
                   </div>
                   {over && (
-                    <p className="text-[10px] text-expense mt-1">
+                    <p className="text-xs text-expense mt-1">
                       Over by ₹{(spent - limit).toLocaleString('en-IN')}
                     </p>
                   )}
                   <button
                     onClick={() => { setEditingCat(cat.name); setLimitVal(String(limit)) }}
-                    className="text-[10px] text-primary mt-1"
+                    className="text-xs text-primary mt-1"
                   >
                     Edit limit
                   </button>

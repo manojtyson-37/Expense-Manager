@@ -48,10 +48,20 @@ export default function AddTransaction() {
     }
   }, [accounts, account])
 
+  const [error, setError] = useState('')
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError('')
     const parsed = parseFloat(amount)
-    if (isNaN(parsed) || parsed <= 0) return
+    if (isNaN(parsed) || parsed <= 0) {
+      setError('Enter a valid amount greater than 0')
+      return
+    }
+    if (!category) {
+      setError('Select a category')
+      return
+    }
 
     if (isEdit) {
       await updateTransaction(Number(id), { type, amount: parsed, category, account, note, date })
@@ -179,10 +189,14 @@ export default function AddTransaction() {
           />
         </div>
 
+        {error && (
+          <div className="text-expense text-xs bg-expense/10 border border-expense/20 rounded-xl px-3 py-2.5">{error}</div>
+        )}
+
         {/* Submit */}
         <button
           type="submit"
-          className={`w-full py-3.5 rounded-xl font-semibold text-white transition-colors ${
+          className={`w-full py-3.5 rounded-xl font-semibold text-white transition-colors min-h-[48px] ${
             type === 'expense' ? 'bg-expense active:bg-red-600' : 'bg-income active:bg-emerald-600'
           }`}
         >

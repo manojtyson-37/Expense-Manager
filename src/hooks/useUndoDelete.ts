@@ -7,7 +7,7 @@ interface UndoState {
 
 export function useUndoDelete() {
   const [toast, setToast] = useState<UndoState | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const scheduleDelete = useCallback((
     message: string,

@@ -10,13 +10,14 @@ import Accounts from './pages/Accounts'
 import Budgets from './pages/Budgets'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import Onboarding from './pages/Onboarding'
 import NavBar from './components/NavBar'
 import { useAccounts } from './hooks/useAccounts'
 import { Cloud } from 'lucide-react'
 
 export default function App() {
-  const { user, loading } = useAuth()
+  const { user, loading, recovery } = useAuth()
   const accounts = useAccounts()
   const lastSyncRef = useRef(0)
   const syncingRef = useRef(false)
@@ -58,6 +59,10 @@ export default function App() {
         <div className="text-text-muted">Loading...</div>
       </div>
     )
+  }
+
+  if (recovery) {
+    return <ResetPassword />
   }
 
   if (!user) {

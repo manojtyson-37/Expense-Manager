@@ -32,6 +32,22 @@ export default function Login() {
     setLoading(false)
   }
 
+  async function handleForgot() {
+    if (!email) {
+      setError('Enter your email first, then tap Forgot password.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setMessage('')
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    })
+    if (error) setError(error.message)
+    else setMessage('Password reset link sent. Check your email.')
+    setLoading(false)
+  }
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6" style={{
       background: 'radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.08) 0%, transparent 60%)',
@@ -87,6 +103,17 @@ export default function Login() {
           >
             {loading ? '...' : isSignUp ? 'Create Account' : 'Sign In'}
           </button>
+
+          {!isSignUp && (
+            <button
+              type="button"
+              onClick={handleForgot}
+              disabled={loading}
+              className="w-full text-center text-xs text-text-muted py-1 disabled:opacity-50"
+            >
+              Forgot password?
+            </button>
+          )}
         </form>
 
         <button

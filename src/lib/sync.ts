@@ -221,9 +221,11 @@ export async function deleteCloudTransaction(userId: string, t: Transaction) {
     const { error } = await supabase.from('transactions')
       .delete().eq('user_id', userId).eq('uid', t.uid)
     if (error) console.error('Delete cloud transaction failed:', error)
-    return
   }
-  // Legacy fallback for pre-uid rows: match by all fields.
+  // Always also match by content, not just as a fallback for pre-uid rows:
+  // a row whose cloud uid diverged from local (old uid-migration leftovers)
+  // survives the uid-based delete above and gets pulled back on next sync —
+  // this is the "deleted it, refreshed, it came back" bug. Belt and suspenders.
   const { error } = await supabase.from('transactions')
     .delete()
     .eq('user_id', userId)

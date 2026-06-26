@@ -2,6 +2,7 @@ import {
   Wallet, Laptop, TrendingUp, Gift, UtensilsCrossed, Car, ShoppingBag,
   FileText, Film, Heart, GraduationCap, ShoppingCart, Home, Zap, Package,
   CreditCard, Smartphone, Banknote, Building2, HandCoins,
+  Plane, Pill, Gamepad2, Shirt, Sparkles,
   type LucideProps
 } from 'lucide-react'
 
@@ -26,6 +27,11 @@ const EMOJI_TO_ICON: Record<string, React.ComponentType<LucideProps>> = {
   '💵': Banknote,
   '🏦': Building2,
   '👛': HandCoins,
+  '✈️': Plane,
+  '💊': Pill,
+  '🎮': Gamepad2,
+  '👕': Shirt,
+  '💅': Sparkles,
 }
 
 interface Props {

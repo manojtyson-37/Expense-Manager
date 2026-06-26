@@ -154,7 +154,7 @@ export default function Accounts() {
                       : 'bg-surface-light border border-transparent'
                   }`}
                 >
-                  <span>{t.icon}</span>
+                  <IconRenderer icon={t.icon} size={16} />
                   <span>{t.label}</span>
                 </button>
               ))}

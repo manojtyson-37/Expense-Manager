@@ -138,7 +138,7 @@ export default function Categories() {
                     icon === i ? 'bg-primary/20 ring-2 ring-primary' : 'bg-surface-light'
                   }`}
                 >
-                  {i}
+                  <IconRenderer icon={i} size={20} />
                 </button>
               ))}
             </div>

@@ -9,6 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false, // registered manually in main.tsx (adds periodic update check)
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'Expense Tracker',

@@ -63,41 +63,35 @@ export async function syncFromCloud(userId: string) {
     // ponytail: a row deleted on another device but still present locally gets
     // resurrected here — no tombstones for txns/accounts to detect that. Accept
     // resurrection over data loss; add per-row sync flags if it ever matters.
-    // Transactions are merged/deduped by stable `uid`, not content. Editing a
-    // txn changes its content but not its uid, so the edit lands on the same
-    // row instead of spawning a duplicate (the old content-match bug).
-    const cloudRows: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount) }))
+    // IDENTITY MODEL: a transaction's `uid` is the stable handle used to UPDATE
+    // and DELETE the exact row (so an edit lands on the same row — fixes the
+    // original edit-duplicate bug). But MERGE/DEDUP here is by CONTENT key:
+    // identical rows collapse into one (product decision), and a row whose uid
+    // diverged between local and cloud (e.g. independent backfills) does NOT
+    // double — content matches, so it's treated as the same row.
+    const cloudRows: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount), uid: t.uid || newUid() }))
     const localTxns = await db.transactions.toArray()
 
-    // Heal legacy cloud rows that predate uid: adopt a content-matching local
-    // uid, else mint one, and persist back to cloud so future syncs match.
-    const localUidByKey = new Map<string, string>()
-    for (const t of localTxns) if (t.uid) localUidByKey.set(txnKey(t), t.uid)
-    for (const r of cloudRows) {
-      if (r.uid) continue
-      r.uid = localUidByKey.get(txnKey(r)) || newUid()
-      if (r.id != null) {
-        await supabase.from('transactions').update({ uid: r.uid }).eq('user_id', userId).eq('id', r.id)
-      }
-    }
-
-    // Push local rows whose uid isn't in cloud yet.
-    const cloudUids = new Set(cloudRows.map(r => r.uid))
+    // Push local rows whose CONTENT isn't in cloud yet (push is upsert-by-uid,
+    // so a racing double-push of the same row is idempotent — no duplicate).
+    const cloudKeys = new Set(cloudRows.map(txnKey))
     for (const t of localTxns) {
-      if (cloudUids.has(t.uid)) continue
+      if (cloudKeys.has(txnKey(t))) continue
+      const uid = t.uid || newUid()
       await pushTransaction(userId, {
-        uid: t.uid, type: t.type, amount: t.amount, category: t.category,
+        uid, type: t.type, amount: t.amount, category: t.category,
         account: t.account, note: t.note, date: t.date,
       })
-      cloudUids.add(t.uid)
-      cloudRows.push({ ...t, created_at: new Date(t.createdAt).toISOString() })
+      cloudKeys.add(txnKey(t))
+      cloudRows.push({ ...t, uid, created_at: new Date(t.createdAt).toISOString() })
     }
 
-    // Dedup by uid (collapses any pre-existing cloud duplicates).
-    const seenTxnUid = new Set<string>()
+    // Dedup by CONTENT key (collapses identical rows + uid-divergence dups).
+    const seenTxnKey = new Set<string>()
     const txns = cloudRows.filter(r => {
-      if (seenTxnUid.has(r.uid)) return false
-      seenTxnUid.add(r.uid)
+      const k = txnKey(r)
+      if (seenTxnKey.has(k)) return false
+      seenTxnKey.add(k)
       return true
     })
 
@@ -194,10 +188,12 @@ export async function syncFromCloud(userId: string) {
 }
 
 export async function pushTransaction(userId: string, t: Omit<Transaction, 'id' | 'createdAt'>) {
-  const { error } = await supabase.from('transactions').insert({
+  // upsert on (user_id, uid): pushing the same row twice (e.g. add + a racing
+  // sync re-push) updates in place instead of creating a duplicate row.
+  const { error } = await supabase.from('transactions').upsert({
     user_id: userId, uid: t.uid, type: t.type, amount: t.amount, category: t.category,
     account: t.account || '', note: t.note, date: t.date,
-  })
+  }, { onConflict: 'user_id,uid' })
   if (error) console.error('Push transaction failed:', error)
 }
 

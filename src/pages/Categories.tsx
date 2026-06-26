@@ -1,5 +1,5 @@
 import IconRenderer from '../components/IconRenderer'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useCategories, addCategory, updateCategory, deleteCategory } from '../hooks/useCategories'
 import type { Category } from '../db'
 import { Plus, X, Pencil } from 'lucide-react'
@@ -19,6 +19,11 @@ export default function Categories() {
   const [icon, setIcon] = useState('📦')
   const [color, setColor] = useState('#6366f1')
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const formRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (showForm) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [showForm, editingId])
 
   const incomeCategories = categories?.filter(c => c.type === 'income') || []
   const expenseCategories = categories?.filter(c => c.type === 'expense') || []
@@ -100,7 +105,7 @@ export default function Categories() {
       </div>
 
       {showForm && (
-        <div className="bg-surface rounded-2xl p-4 mb-4 space-y-3">
+        <div ref={formRef} className="bg-surface rounded-2xl p-4 mb-4 space-y-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-semibold">{editingId ? 'Edit Category' : 'Add Category'}</span>
             <button onClick={closeForm} className="p-1 text-text-muted"><X size={18} /></button>

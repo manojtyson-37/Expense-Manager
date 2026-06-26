@@ -85,7 +85,7 @@ export default function App() {
         <Route path="/" element={<Dashboard month={currentMonth} onMonthChange={setCurrentMonth} />} />
         <Route path="/transactions" element={<Transactions month={currentMonth} onMonthChange={setCurrentMonth} />} />
         <Route path="/add" element={<AddTransaction />} />
-        <Route path="/edit/:id" element={<AddTransaction />} />
+        <Route path="/edit/:uid" element={<AddTransaction />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/budgets" element={<Budgets month={currentMonth} />} />

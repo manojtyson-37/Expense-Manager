@@ -9,8 +9,8 @@ import { ArrowLeft } from 'lucide-react'
 
 export default function AddTransaction() {
   const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = !!id
+  const { uid } = useParams()
+  const isEdit = !!uid
 
   const [type, setType] = useState<'expense' | 'income'>('expense')
   const [amount, setAmount] = useState('')
@@ -24,7 +24,7 @@ export default function AddTransaction() {
 
   useEffect(() => {
     if (isEdit) {
-      db.transactions.get(Number(id)).then(t => {
+      db.transactions.where('uid').equals(uid!).first().then(t => {
         if (t) {
           setType(t.type)
           setAmount(String(t.amount))
@@ -35,7 +35,7 @@ export default function AddTransaction() {
         }
       })
     }
-  }, [id, isEdit])
+  }, [uid, isEdit])
 
   useEffect(() => {
     if (categories && categories.length > 0 && !category) {
@@ -65,7 +65,7 @@ export default function AddTransaction() {
     }
 
     if (isEdit) {
-      await updateTransaction(Number(id), { type, amount: parsed, category, account, note, date })
+      await updateTransaction(uid!, { type, amount: parsed, category, account, note, date })
     } else {
       await addTransaction({ type, amount: parsed, category, account, note, date })
     }

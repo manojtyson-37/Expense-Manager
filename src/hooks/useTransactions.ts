@@ -131,22 +131,27 @@ export async function addTransaction(data: Omit<Transaction, 'id' | 'createdAt' 
   return id
 }
 
-export async function updateTransaction(id: number, data: Partial<Transaction>) {
-  await db.transactions.update(id, data)
-  const updated = await db.transactions.get(id)
+// Address rows by stable `uid`, never the Dexie auto-id: syncFromCloud does
+// clear()+bulkAdd which REASSIGNS every local id, so an id captured before a
+// sync points at the wrong row afterwards (root cause of "edit didn't update").
+export async function updateTransaction(uid: string, data: Partial<Transaction>) {
+  const row = await db.transactions.where('uid').equals(uid).first()
+  if (!row) return
+  await db.transactions.update(row.id!, data)
+  const updated = await db.transactions.get(row.id!)
   const userId = await getUserId()
-  // Edit in place by uid — single upsert, no delete+insert (the old delete-by-
-  // every-field could miss and leave a stale row → the duplicate bug).
+  // Edit in place by uid — single upsert, no delete+insert.
   if (userId && updated) {
     upsertCloudTransaction(userId, updated).catch(console.error)
   }
 }
 
-export async function deleteTransaction(id: number) {
-  const t = await db.transactions.get(id)
-  await db.transactions.delete(id)
+export async function deleteTransaction(uid: string) {
+  const t = await db.transactions.where('uid').equals(uid).first()
+  if (!t) return
+  await db.transactions.delete(t.id!)
   const userId = await getUserId()
-  if (userId && t) {
+  if (userId) {
     deleteCloudTransaction(userId, t).catch(console.error)
   }
 }

@@ -7,7 +7,7 @@ interface Props {
   transaction: Transaction
   categories?: Category[]
   accounts?: Account[]
-  onDelete: (id: number) => void
+  onDelete: (uid: string) => void
 }
 
 export default function TransactionItem({ transaction, categories, accounts, onDelete }: Props) {
@@ -17,7 +17,7 @@ export default function TransactionItem({ transaction, categories, accounts, onD
 
   return (
     <div
-      onClick={() => navigate(`/edit/${transaction.id}`)}
+      onClick={() => navigate(`/edit/${transaction.uid}`)}
       className="flex items-center gap-3 px-4 py-3 active:bg-surface-light/50 cursor-pointer"
     >
       <div
@@ -37,7 +37,7 @@ export default function TransactionItem({ transaction, categories, accounts, onD
       <span className={`font-semibold text-sm shrink-0 ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
         {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
       </span>
-      <DeleteButton onConfirm={() => onDelete(transaction.id!)} size={14} />
+      <DeleteButton onConfirm={() => onDelete(transaction.uid)} size={14} />
     </div>
   )
 }

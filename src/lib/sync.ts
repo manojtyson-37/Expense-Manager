@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, type Transaction, type Category, type Account, type Budget, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, newUid, type Transaction, type Category, type Account, type Budget, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -63,16 +63,43 @@ export async function syncFromCloud(userId: string) {
     // ponytail: a row deleted on another device but still present locally gets
     // resurrected here — no tombstones for txns/accounts to detect that. Accept
     // resurrection over data loss; add per-row sync flags if it ever matters.
-    const txns: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount) }))
-    const cloudTxnKeys = new Set(txns.map(txnKey))
-    for (const t of await db.transactions.toArray()) {
-      if (cloudTxnKeys.has(txnKey(t))) continue
+    // Transactions are merged/deduped by stable `uid`, not content. Editing a
+    // txn changes its content but not its uid, so the edit lands on the same
+    // row instead of spawning a duplicate (the old content-match bug).
+    const cloudRows: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount) }))
+    const localTxns = await db.transactions.toArray()
+
+    // Heal legacy cloud rows that predate uid: adopt a content-matching local
+    // uid, else mint one, and persist back to cloud so future syncs match.
+    const localUidByKey = new Map<string, string>()
+    for (const t of localTxns) if (t.uid) localUidByKey.set(txnKey(t), t.uid)
+    for (const r of cloudRows) {
+      if (r.uid) continue
+      r.uid = localUidByKey.get(txnKey(r)) || newUid()
+      if (r.id != null) {
+        await supabase.from('transactions').update({ uid: r.uid }).eq('user_id', userId).eq('id', r.id)
+      }
+    }
+
+    // Push local rows whose uid isn't in cloud yet.
+    const cloudUids = new Set(cloudRows.map(r => r.uid))
+    for (const t of localTxns) {
+      if (cloudUids.has(t.uid)) continue
       await pushTransaction(userId, {
-        type: t.type, amount: t.amount, category: t.category,
+        uid: t.uid, type: t.type, amount: t.amount, category: t.category,
         account: t.account, note: t.note, date: t.date,
       })
-      txns.push({ ...t, created_at: new Date(t.createdAt).toISOString() })
+      cloudUids.add(t.uid)
+      cloudRows.push({ ...t, created_at: new Date(t.createdAt).toISOString() })
     }
+
+    // Dedup by uid (collapses any pre-existing cloud duplicates).
+    const seenTxnUid = new Set<string>()
+    const txns = cloudRows.filter(r => {
+      if (seenTxnUid.has(r.uid)) return false
+      seenTxnUid.add(r.uid)
+      return true
+    })
 
     const cats: any[] = [...(cloudCats || [])]
     // Compare against ACTIVE cloud names only. A local category that matches a
@@ -100,6 +127,7 @@ export async function syncFromCloud(userId: string) {
     if (txns.length > 0) {
       await db.transactions.clear()
       await db.transactions.bulkAdd(txns.map(t => ({
+        uid: t.uid,
         type: t.type as 'income' | 'expense',
         amount: Number(t.amount),
         category: t.category,
@@ -167,14 +195,39 @@ export async function syncFromCloud(userId: string) {
 
 export async function pushTransaction(userId: string, t: Omit<Transaction, 'id' | 'createdAt'>) {
   const { error } = await supabase.from('transactions').insert({
-    user_id: userId, type: t.type, amount: t.amount, category: t.category,
+    user_id: userId, uid: t.uid, type: t.type, amount: t.amount, category: t.category,
     account: t.account || '', note: t.note, date: t.date,
   })
   if (error) console.error('Push transaction failed:', error)
 }
 
+// Edit: update the cloud row with this uid in place; insert if it doesn't
+// exist yet (created offline or before the uid migration).
+export async function upsertCloudTransaction(userId: string, t: Transaction) {
+  const { data, error } = await supabase.from('transactions')
+    .update({
+      type: t.type, amount: t.amount, category: t.category,
+      account: t.account || '', note: t.note, date: t.date,
+    })
+    .eq('user_id', userId).eq('uid', t.uid)
+    .select('id')
+  if (error) { console.error('Upsert transaction failed:', error); return }
+  if (!data || data.length === 0) {
+    await pushTransaction(userId, {
+      uid: t.uid, type: t.type, amount: t.amount, category: t.category,
+      account: t.account, note: t.note, date: t.date,
+    })
+  }
+}
+
 export async function deleteCloudTransaction(userId: string, t: Transaction) {
-  // Match by all fields including account and type for uniqueness
+  if (t.uid) {
+    const { error } = await supabase.from('transactions')
+      .delete().eq('user_id', userId).eq('uid', t.uid)
+    if (error) console.error('Delete cloud transaction failed:', error)
+    return
+  }
+  // Legacy fallback for pre-uid rows: match by all fields.
   const { error } = await supabase.from('transactions')
     .delete()
     .eq('user_id', userId)
@@ -243,7 +296,7 @@ export async function fullResync(userId: string) {
 
     if (transactions.length > 0) {
       await supabase.from('transactions').insert(transactions.map(t => ({
-        user_id: userId, type: t.type, amount: t.amount, category: t.category,
+        user_id: userId, uid: t.uid, type: t.type, amount: t.amount, category: t.category,
         account: t.account || '', note: t.note, date: t.date,
         created_at: new Date(t.createdAt).toISOString(),
       })))

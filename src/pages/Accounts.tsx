@@ -1,8 +1,9 @@
 import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useAccounts, addAccount, updateAccount, deleteAccount } from '../hooks/useAccounts'
+import { useAccountInsights } from '../hooks/useTransactions'
 import type { AccountType, Account } from '../db'
-import { Plus, ArrowLeft, X, Pencil } from 'lucide-react'
+import { Plus, ArrowLeft, X, Pencil, ChevronDown } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
@@ -27,6 +28,8 @@ export default function Accounts() {
   const [accountType, setAccountType] = useState<AccountType>('credit_card')
   const [color, setColor] = useState('#6366f1')
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const insights = useAccountInsights()
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const selectedTypeInfo = ACCOUNT_TYPES.find(t => t.type === accountType)!
 
@@ -92,6 +95,43 @@ export default function Accounts() {
           <Plus size={18} /> Add
         </button>
       </div>
+
+      {/* Spend by account — total per account + tap to see category breakdown */}
+      {insights && insights.accounts.some(a => a.spent > 0) && (
+        <div className="mb-5">
+          <h2 className="text-xs text-text-muted uppercase tracking-wider mb-2">Spend by Account (all time)</h2>
+          <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
+            {insights.accounts.filter(a => a.spent > 0).map(a => (
+              <div key={a.name}>
+                <button
+                  onClick={() => setExpanded(expanded === a.name ? null : a.name)}
+                  className="w-full flex items-center gap-3 px-4 py-3 active:bg-surface-light/50 text-left"
+                >
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: a.color + '20' }}>
+                    <IconRenderer icon={a.icon} size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{a.name}</div>
+                    {a.isCredit && <div className="text-[11px] text-expense">Outstanding ₹{a.outstanding.toLocaleString('en-IN')}</div>}
+                  </div>
+                  <span className="text-sm font-semibold text-expense">₹{a.spent.toLocaleString('en-IN')}</span>
+                  <ChevronDown size={16} className={`text-text-muted transition-transform ${expanded === a.name ? 'rotate-180' : ''}`} />
+                </button>
+                {expanded === a.name && (
+                  <div className="px-4 pb-3 pl-16 space-y-1.5">
+                    {a.byCategory.map(c => (
+                      <div key={c.category} className="flex items-center justify-between text-xs">
+                        <span className="text-text-muted">{c.category}</span>
+                        <span>₹{c.total.toLocaleString('en-IN')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-surface rounded-2xl p-4 mb-4 space-y-3">

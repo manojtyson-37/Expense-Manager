@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from 'dexie'
 
 export interface Transaction {
   id?: number
+  uid: string // stable cross-device id (local + cloud) — used for sync match, not Dexie's ++id
   type: 'income' | 'expense'
   amount: number
   category: string
@@ -9,6 +10,10 @@ export interface Transaction {
   note: string
   date: string // YYYY-MM-DD
   createdAt: number
+}
+
+export function newUid(): string {
+  return (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 }
 
 export interface Category {
@@ -59,6 +64,18 @@ db.version(3).stores({
   categories: '++id, name, type',
   accounts: '++id, name, type',
   budgets: '++id, category, month',
+})
+
+// v4: stable uid on transactions. Backfill existing rows so every txn has one.
+db.version(4).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+}).upgrade(async tx => {
+  await tx.table('transactions').toCollection().modify(t => {
+    if (!t.uid) t.uid = newUid()
+  })
 })
 
 export async function seedAccounts() {

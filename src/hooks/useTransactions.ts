@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Transaction } from '../db'
-import { getUserId, pushTransaction, deleteCloudTransaction } from '../lib/sync'
+import { db, newUid, type Transaction } from '../db'
+import { getUserId, pushTransaction, upsertCloudTransaction, deleteCloudTransaction } from '../lib/sync'
 
 export function useTransactions(month?: string) {
   const transactions = useLiveQuery(async () => {
@@ -42,37 +42,103 @@ export function useTransactions(month?: string) {
   return { transactions, totals, categoryTotals }
 }
 
-export async function addTransaction(data: Omit<Transaction, 'id' | 'createdAt'>) {
-  const id = await db.transactions.add({ ...data, createdAt: Date.now() })
+export interface AccountInsight {
+  name: string
+  type: string
+  icon: string
+  color: string
+  isCredit: boolean
+  spent: number   // expense out of this account
+  received: number // income into this account (for cards: payments/refunds)
+  outstanding: number // credit cards: spent - received (what you owe)
+  net: number     // non-credit: received - spent (cash you hold)
+  byCategory: { category: string; total: number }[] // expense breakdown
+}
+
+// Per-account spend + the split balance model:
+//   cashBalance      = income - expense across NON-credit accounts only
+//   creditOutstanding = sum of what's owed across credit-card accounts
+// Credit-card spend never reduces cashBalance — it's a liability, shown apart.
+export function useAccountInsights(month?: string) {
+  return useLiveQuery(async () => {
+    const accounts = await db.accounts.toArray()
+    const typeByName = new Map(accounts.map(a => [a.name, a.type]))
+
+    const all = await db.transactions.toArray()
+    const txns = month ? all.filter(t => t.date.startsWith(month)) : all
+
+    const map = new Map<string, AccountInsight>()
+    const ensure = (name: string): AccountInsight => {
+      let ins = map.get(name)
+      if (!ins) {
+        const acc = accounts.find(a => a.name === name)
+        ins = {
+          name,
+          type: acc?.type || 'cash',
+          icon: acc?.icon || '💵',
+          color: acc?.color || '#64748b',
+          isCredit: (typeByName.get(name) || 'cash') === 'credit_card',
+          spent: 0, received: 0, outstanding: 0, net: 0, byCategory: [],
+        }
+        map.set(name, ins)
+      }
+      return ins
+    }
+
+    const catMaps = new Map<string, Map<string, number>>()
+    for (const t of txns) {
+      const name = t.account || 'Cash'
+      const ins = ensure(name)
+      if (t.type === 'expense') {
+        ins.spent += t.amount
+        const cm = catMaps.get(name) || new Map<string, number>()
+        cm.set(t.category, (cm.get(t.category) || 0) + t.amount)
+        catMaps.set(name, cm)
+      } else {
+        ins.received += t.amount
+      }
+    }
+
+    let cashBalance = 0
+    let creditOutstanding = 0
+    for (const ins of map.values()) {
+      ins.outstanding = ins.spent - ins.received
+      ins.net = ins.received - ins.spent
+      ins.byCategory = Array.from((catMaps.get(ins.name) || new Map()).entries())
+        .map(([category, total]) => ({ category, total }))
+        .sort((a, b) => b.total - a.total)
+      if (ins.isCredit) creditOutstanding += ins.outstanding
+      else cashBalance += ins.net
+    }
+
+    const list = Array.from(map.values()).sort((a, b) => b.spent - a.spent)
+    return {
+      accounts: list,
+      creditCards: list.filter(a => a.isCredit),
+      cashBalance,
+      creditOutstanding,
+    }
+  }, [month])
+}
+
+export async function addTransaction(data: Omit<Transaction, 'id' | 'createdAt' | 'uid'>) {
+  const uid = newUid()
+  const id = await db.transactions.add({ ...data, uid, createdAt: Date.now() })
   const userId = await getUserId()
   if (userId) {
-    pushTransaction(userId, data).catch(console.error)
+    pushTransaction(userId, { ...data, uid }).catch(console.error)
   }
   return id
 }
 
 export async function updateTransaction(id: number, data: Partial<Transaction>) {
-  const old = await db.transactions.get(id)
   await db.transactions.update(id, data)
+  const updated = await db.transactions.get(id)
   const userId = await getUserId()
-  if (userId && old) {
-    try {
-      await deleteCloudTransaction(userId, old)
-      const updated = await db.transactions.get(id)
-      if (updated) {
-        await pushTransaction(userId, {
-          type: updated.type, amount: updated.amount, category: updated.category,
-          account: updated.account, note: updated.note, date: updated.date,
-        })
-      }
-    } catch (err) {
-      // Re-push old record if delete succeeded but insert failed
-      pushTransaction(userId, {
-        type: old.type, amount: old.amount, category: old.category,
-        account: old.account, note: old.note, date: old.date,
-      }).catch(console.error)
-      console.error('Update cloud transaction failed:', err)
-    }
+  // Edit in place by uid — single upsert, no delete+insert (the old delete-by-
+  // every-field could miss and leave a stale row → the duplicate bug).
+  if (userId && updated) {
+    upsertCloudTransaction(userId, updated).catch(console.error)
   }
 }
 

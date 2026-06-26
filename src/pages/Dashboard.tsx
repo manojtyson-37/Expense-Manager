@@ -1,4 +1,4 @@
-import { useTransactions } from '../hooks/useTransactions'
+import { useTransactions, useAccountInsights } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import { useBudgets } from '../hooks/useBudgets'
@@ -71,6 +71,7 @@ function prevMonth(month: string): string {
 export default function Dashboard({ month, onMonthChange }: Props) {
   const { transactions, totals, categoryTotals } = useTransactions(month)
   const { totals: prevTotals } = useTransactions(prevMonth(month))
+  const insights = useAccountInsights(month)
   const categories = useCategories()
   const accounts = useAccounts()
   const budgets = useBudgets(month)
@@ -81,7 +82,9 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
   const totalExpense = totals?.expense || 0
   const totalIncome = totals?.income || 0
-  const balance = totals?.balance || 0
+  const cashBalance = insights?.cashBalance || 0
+  const creditCards = insights?.creditCards || []
+  const creditOutstanding = insights?.creditOutstanding || 0
   const prevExpense = prevTotals?.expense || 0
   const prevIncome = prevTotals?.income || 0
 
@@ -111,10 +114,11 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           background: 'radial-gradient(circle, #10b981 0%, transparent 70%)',
           transform: 'translate(30%, -30%)',
         }} />
-        <div className="text-text-muted text-xs uppercase tracking-widest mb-1">Total Balance</div>
-        <div className={`text-3xl font-bold tracking-tight ${balance >= 0 ? 'text-primary-light' : 'text-expense'}`}>
-          ₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        <div className="text-text-muted text-xs uppercase tracking-widest mb-1">Cash Balance</div>
+        <div className={`text-3xl font-bold tracking-tight ${cashBalance >= 0 ? 'text-primary-light' : 'text-expense'}`}>
+          ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </div>
+        <div className="text-text-muted text-[11px] mt-0.5">Cash, bank, UPI &amp; wallet · card spends shown separately</div>
 
         <div className="flex gap-6 mt-4">
           <div className="flex items-center gap-2">
@@ -149,6 +153,31 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Credit Cards — outstanding (spend that does NOT reduce cash balance) */}
+      {creditCards.length > 0 && (
+        <div className="px-4 mb-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Credit Cards · Outstanding</h2>
+            <span className="text-xs font-semibold text-expense">{formatAmount(creditOutstanding)}</span>
+          </div>
+          <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
+            {creditCards.map(card => (
+              <button
+                key={card.name}
+                onClick={() => navigate('/accounts')}
+                className="w-full flex items-center gap-3 px-4 py-3 active:bg-surface-light/50 text-left"
+              >
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: card.color + '20' }}>
+                  <IconRenderer icon={card.icon} size={18} />
+                </div>
+                <span className="flex-1 text-sm font-medium truncate">{card.name}</span>
+                <span className="text-sm font-semibold text-expense">₹{card.outstanding.toLocaleString('en-IN')}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats Row */}
       <div className="px-4 flex gap-3 mb-5">

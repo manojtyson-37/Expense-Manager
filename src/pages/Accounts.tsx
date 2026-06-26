@@ -134,7 +134,8 @@ export default function Accounts() {
       )}
 
       {showForm && (
-        <div className="bg-surface rounded-2xl p-4 mb-4 space-y-3">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={closeForm}>
+        <div className="bg-surface rounded-t-2xl p-4 space-y-3 w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-semibold">{editingId ? 'Edit Account' : 'Add Account'}</span>
             <button onClick={closeForm} className="p-1 text-text-muted"><X size={18} /></button>
@@ -190,6 +191,7 @@ export default function Accounts() {
           >
             {editingId ? 'Save Changes' : 'Add Account'}
           </button>
+        </div>
         </div>
       )}
 

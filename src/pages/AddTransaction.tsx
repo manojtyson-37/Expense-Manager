@@ -116,7 +116,6 @@ export default function AddTransaction() {
               className="text-2xl font-bold"
               style={{ paddingLeft: '2.5rem' }}
               autoFocus
-              required
             />
           </div>
         </div>

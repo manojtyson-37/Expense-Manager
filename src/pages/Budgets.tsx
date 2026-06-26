@@ -20,6 +20,7 @@ export default function Budgets({ month }: Props) {
   const { categoryTotals } = useTransactions(month)
   const [editingCat, setEditingCat] = useState<string | null>(null)
   const [limitVal, setLimitVal] = useState('')
+  const [limitError, setLimitError] = useState(false)
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
   const expenseTotals = new Map(
@@ -36,10 +37,14 @@ export default function Budgets({ month }: Props) {
 
   async function handleSave(category: string) {
     const val = parseFloat(limitVal)
-    if (isNaN(val) || val <= 0) return
+    if (isNaN(val) || val <= 0) {
+      setLimitError(true)
+      return
+    }
     await setBudget(category, val, month)
     setEditingCat(null)
     setLimitVal('')
+    setLimitError(false)
   }
 
   return (
@@ -110,36 +115,41 @@ export default function Budgets({ month }: Props) {
                   </button>
                 </>
               ) : isEditing ? (
-                <div className="flex gap-2 mt-1">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">₹</span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={limitVal}
-                      onChange={e => setLimitVal(e.target.value)}
-                      placeholder="Monthly limit"
-                      style={{ paddingLeft: '1.75rem' }}
-                      className="text-sm"
-                      autoFocus
-                    />
+                <>
+                  <div className="flex gap-2 mt-1">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">₹</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={limitVal}
+                        onChange={e => { setLimitVal(e.target.value); setLimitError(false) }}
+                        placeholder="Monthly limit"
+                        style={{ paddingLeft: '1.75rem' }}
+                        className="text-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleSave(cat.name)}
+                      className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => { setEditingCat(null); setLimitError(false) }}
+                      className="px-3 py-2 bg-surface-light rounded-xl text-sm"
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleSave(cat.name)}
-                    className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingCat(null)}
-                    className="px-3 py-2 bg-surface-light rounded-xl text-sm"
-                  >
-                    ✕
-                  </button>
-                </div>
+                  {limitError && (
+                    <p className="text-xs text-expense mt-1.5">Enter a limit greater than 0</p>
+                  )}
+                </>
               ) : (
                 <button
-                  onClick={() => { setEditingCat(cat.name); setLimitVal('') }}
+                  onClick={() => { setEditingCat(cat.name); setLimitVal(''); setLimitError(false) }}
                   className="text-xs text-primary mt-1"
                 >
                   + Set budget

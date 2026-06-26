@@ -130,7 +130,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               <div className="text-sm font-semibold text-income">{formatAmount(totalIncome)}</div>
               {prevIncome > 0 && (
                 <div className={`text-xs flex items-center gap-0.5 ${incomeDelta >= 0 ? 'text-income' : 'text-expense'}`}>
-                  {incomeDelta >= 0 ? <TrendingUp size={8} /> : <TrendingDown size={8} />}
+                  {incomeDelta >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                   {Math.abs(incomeDelta).toFixed(0)}% vs last
                 </div>
               )}
@@ -145,7 +145,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               <div className="text-sm font-semibold text-expense">{formatAmount(totalExpense)}</div>
               {prevExpense > 0 && (
                 <div className={`text-xs flex items-center gap-0.5 ${expenseDelta <= 0 ? 'text-income' : 'text-expense'}`}>
-                  {expenseDelta <= 0 ? <TrendingDown size={8} /> : <TrendingUp size={8} />}
+                  {expenseDelta <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
                   {Math.abs(expenseDelta).toFixed(0)}% vs last
                 </div>
               )}
@@ -266,7 +266,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${pct}%`,
-                        backgroundColor: over ? '#ef4444' : pct > 80 ? '#f59e0b' : '#10b981',
+                        backgroundColor: over ? 'var(--color-expense)' : pct > 80 ? 'var(--color-accent)' : 'var(--color-primary)',
                       }}
                     />
                   </div>

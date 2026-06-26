@@ -148,10 +148,13 @@ export async function updateTransaction(uid: string, data: Partial<Transaction>)
 
 export async function deleteTransaction(uid: string) {
   const t = await db.transactions.where('uid').equals(uid).first()
-  if (!t) return
+  if (!t) {
+    console.error(`[delete] transaction not found: uid=${uid}`)
+    return
+  }
   await db.transactions.delete(t.id!)
   const userId = await getUserId()
   if (userId) {
-    deleteCloudTransaction(userId, t).catch(console.error)
+    await deleteCloudTransaction(userId, t)
   }
 }

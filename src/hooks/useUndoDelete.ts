@@ -25,8 +25,8 @@ export function useUndoDelete() {
     })
 
     timerRef.current = setTimeout(async () => {
-      setToast(null)
       await doDelete()
+      setToast(null)
     }, duration)
   }, [])
 

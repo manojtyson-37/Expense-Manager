@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { db, type Transaction, type Category, type Account } from '../db'
+import { db, type Transaction, type Category, type Account, newUid } from '../db'
 import { useAuth } from '../lib/AuthContext'
 import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
 import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target } from 'lucide-react'
@@ -94,7 +94,10 @@ export default function Settings() {
         }
         if (data.transactions) {
           await db.transactions.clear()
-          await db.transactions.bulkAdd(data.transactions as Transaction[])
+          await db.transactions.bulkAdd((data.transactions as Transaction[]).map(t => ({
+            ...t,
+            uid: t.uid || newUid()
+          })))
         }
         if (data.categories) {
           await db.categories.clear()

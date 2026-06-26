@@ -60,6 +60,7 @@ export default function Categories() {
     scheduleDelete(
       `"${cat.name}" deleted`,
       () => deleteCategory(cat.id!),
+      () => addCategory({ name: cat.name, type: cat.type, icon: cat.icon, color: cat.color }),
     )
   }
 

@@ -9,25 +9,28 @@ export function useUndoDelete() {
   const [toast, setToast] = useState<UndoState | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const scheduleDelete = useCallback((
+  // The delete happens immediately (a page refresh can't cancel a pending
+  // timer and silently un-delete the row). "Undo" reverses an already-
+  // completed delete by re-creating the record, rather than cancelling it.
+  const scheduleDelete = useCallback(async (
     message: string,
-    doDelete: () => void | Promise<void>,
+    doDelete: () => unknown,
+    undo: () => unknown,
     duration = 5000,
   ) => {
     if (timerRef.current) clearTimeout(timerRef.current)
+    await doDelete()
 
     setToast({
       message,
-      onUndo: () => {
+      onUndo: async () => {
         if (timerRef.current) clearTimeout(timerRef.current)
         setToast(null)
+        await undo()
       },
     })
 
-    timerRef.current = setTimeout(async () => {
-      await doDelete()
-      setToast(null)
-    }, duration)
+    timerRef.current = setTimeout(() => setToast(null), duration)
   }, [])
 
   const dismiss = useCallback(() => {

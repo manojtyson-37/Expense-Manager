@@ -220,7 +220,11 @@ export default function Accounts() {
                       </div>
                       <span className="flex-1 text-sm font-medium">{acc.name}</span>
                       <span className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-text-muted"><Pencil size={15} /></span>
-                      <DeleteButton onConfirm={() => scheduleDelete(`"${acc.name}" deleted`, () => deleteAccount(acc.id!))} />
+                      <DeleteButton onConfirm={() => scheduleDelete(
+                        `"${acc.name}" deleted`,
+                        () => deleteAccount(acc.id!),
+                        () => addAccount({ name: acc.name, type: acc.type, icon: acc.icon, color: acc.color }),
+                      )} />
                     </div>
                   ))}
                 </div>

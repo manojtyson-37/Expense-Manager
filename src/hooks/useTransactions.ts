@@ -157,4 +157,17 @@ export async function deleteTransaction(uid: string) {
   if (userId) {
     await deleteCloudTransaction(userId, t)
   }
+  return t
+}
+
+// Re-creates a deleted transaction with its original uid, for Undo.
+export async function restoreTransaction(t: Transaction) {
+  await db.transactions.add({ ...t, id: undefined })
+  const userId = await getUserId()
+  if (userId) {
+    await pushTransaction(userId, {
+      uid: t.uid, type: t.type, amount: t.amount, category: t.category,
+      account: t.account, note: t.note, date: t.date,
+    })
+  }
 }

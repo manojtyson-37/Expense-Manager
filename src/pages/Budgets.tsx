@@ -79,7 +79,11 @@ export default function Budgets({ month }: Props) {
                 </div>
                 <span className="flex-1 text-sm font-medium">{cat.name}</span>
                 {budget && !isEditing && (
-                  <DeleteButton onConfirm={() => scheduleDelete(`"${cat.name}" budget removed`, () => deleteBudget(budget.id!))} size={14} />
+                  <DeleteButton onConfirm={() => scheduleDelete(
+                    `"${cat.name}" budget removed`,
+                    () => deleteBudget(budget.id!),
+                    () => setBudget(cat.name, budget.limit, month),
+                  )} size={14} />
                 )}
               </div>
 

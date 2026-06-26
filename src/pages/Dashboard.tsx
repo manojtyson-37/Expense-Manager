@@ -4,7 +4,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useBudgets } from '../hooks/useBudgets'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
-import { deleteTransaction } from '../hooks/useTransactions'
+import { deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
 import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import IconRenderer from '../components/IconRenderer'
@@ -297,7 +297,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             </div>
           ) : (
             recentTransactions.map(t => (
-              <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id))} />
+              <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id), () => restoreTransaction(t))} />
             ))
           )}
         </div>

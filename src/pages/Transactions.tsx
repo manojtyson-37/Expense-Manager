@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useTransactions, deleteTransaction } from '../hooks/useTransactions'
+import { useTransactions, deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
@@ -106,7 +106,7 @@ export default function Transactions({ month, onMonthChange }: Props) {
               </div>
               <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                 {items.map(t => (
-                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id))} />
+                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id), () => restoreTransaction(t))} />
                 ))}
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import { useBudgets } from '../hooks/useBudgets'
 import { useSubscriptions } from '../hooks/useSubscriptions'
+import { useLoans } from '../hooks/useLoans'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
@@ -81,6 +82,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
   const { symbol, format } = useCurrency()
   const { totalRecurring } = useSubscriptions()
+  const { totalOwed } = useLoans()
 
   const recentTransactions = transactions?.slice(0, 5) || []
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
@@ -215,6 +217,15 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           </div>
           <div className="text-xs text-text-muted">/month subscriptions</div>
         </div>
+        {totalOwed && totalOwed > 0 && (
+          <button onClick={() => navigate('/loans')} className="flex-1 bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
+            <div className="text-xs text-text-muted uppercase tracking-wider">Money Owed</div>
+            <div className="text-lg font-bold text-income mt-0.5">
+              {format(totalOwed)}
+            </div>
+            <div className="text-xs text-text-muted">from friends</div>
+          </button>
+        )}
       </div>
 
       {/* Spending Breakdown with Donut */}

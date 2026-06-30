@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, newUid, type Transaction, type Category, type Account, type Budget, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -323,4 +323,38 @@ export async function clearAllData(userId: string) {
   await db.transactions.clear()
   await db.categories.clear()
   await db.accounts.clear()
+}
+
+export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {
+  const { error } = await supabase.from('subscriptions').insert({
+    user_id: userId, uid: s.uid, name: s.name, amount: s.amount, frequency: s.frequency,
+    start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null, note: s.note || null,
+    created_at: new Date(s.createdAt).toISOString(),
+  })
+  if (error) console.error('Push subscription failed:', error)
+}
+
+export async function deleteCloudSubscription(userId: string, uid: string) {
+  const { error } = await supabase.from('subscriptions')
+    .delete().eq('user_id', userId).eq('uid', uid)
+  if (error) console.error('Delete cloud subscription failed:', error)
+}
+
+export async function pushLoan(loan: Omit<Loan, 'id'>) {
+  const userId = await getUserId()
+  if (!userId) return
+  const { error } = await supabase.from('loans').insert({
+    user_id: userId, uid: loan.uid, person: loan.person, total_amount: loan.totalAmount,
+    date: loan.date, status: loan.status, payments: loan.payments, note: loan.note || null,
+    created_at: new Date(loan.createdAt).toISOString(),
+  })
+  if (error) console.error('Push loan failed:', error)
+}
+
+export async function deleteCloudLoan(uid: string) {
+  const userId = await getUserId()
+  if (!userId) return
+  const { error } = await supabase.from('loans')
+    .delete().eq('user_id', userId).eq('uid', uid)
+  if (error) console.error('Delete cloud loan failed:', error)
 }

@@ -2,6 +2,7 @@ import { useTransactions, useAccountInsights } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import { useBudgets } from '../hooks/useBudgets'
+import { useSubscriptions } from '../hooks/useSubscriptions'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
@@ -79,6 +80,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const navigate = useNavigate()
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
   const { symbol, format } = useCurrency()
+  const { totalRecurring } = useSubscriptions()
 
   const recentTransactions = transactions?.slice(0, 5) || []
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
@@ -205,6 +207,13 @@ export default function Dashboard({ month, onMonthChange }: Props) {
               : format(0, { minimumFractionDigits: 0 })}
           </div>
           <div className="text-xs text-text-muted">daily spend</div>
+        </div>
+        <div className="flex-1 bg-surface rounded-2xl p-3.5">
+          <div className="text-xs text-text-muted uppercase tracking-wider">Recurring</div>
+          <div className="text-lg font-bold text-accent mt-0.5">
+            {totalRecurring ? format(totalRecurring) : format(0, { minimumFractionDigits: 0 })}
+          </div>
+          <div className="text-xs text-text-muted">/month subscriptions</div>
         </div>
       </div>
 

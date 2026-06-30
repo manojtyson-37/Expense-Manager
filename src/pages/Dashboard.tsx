@@ -98,6 +98,8 @@ export default function Dashboard({ month, onMonthChange }: Props) {
     ?.filter(t => t.date === today && t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0) || 0
 
+  const daysInMonth = new Date(parseInt(month.split('-')[0]), parseInt(month.split('-')[1]), 0).getDate()
+
   const donutSegments = expenseCategories.slice(0, 6).map(({ category, total }) => {
     const cat = categories?.find(c => c.name === category)
     return { pct: totalExpense > 0 ? (total / totalExpense) * 100 : 0, color: cat?.color || '#64748b' }
@@ -199,7 +201,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           <div className="text-xs text-text-muted uppercase tracking-wider">Avg/Day</div>
           <div className="text-lg font-bold text-accent mt-0.5">
             {totalExpense > 0
-              ? format(Math.round(totalExpense / new Date().getDate()), { minimumFractionDigits: 0 })
+              ? format(Math.round(totalExpense / daysInMonth), { minimumFractionDigits: 0 })
               : format(0, { minimumFractionDigits: 0 })}
           </div>
           <div className="text-xs text-text-muted">daily spend</div>

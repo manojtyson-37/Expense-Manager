@@ -68,9 +68,14 @@ export async function deleteSubscription(uid: string) {
 export async function toggleSubscriptionStatus(uid: string) {
   const sub = await db.subscriptions.where('uid').equals(uid).first()
   if (!sub) return
+  // active→paused, paused→active, cancelled→active
   const nextStatus: Subscription['status'] =
     sub.status === 'active' ? 'paused' :
     sub.status === 'paused' ? 'active' :
-    'cancelled'
+    'active'
   await editSubscription(uid, { status: nextStatus })
+}
+
+export async function cancelSubscription(uid: string) {
+  await editSubscription(uid, { status: 'cancelled' })
 }

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type PaymentRecord, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -182,6 +182,66 @@ export async function syncFromCloud(userId: string) {
         month: b.month,
       })) as Budget[])
     }
+
+    // Pull subscriptions — push local-only first, then replace with merged set
+    const { data: cloudSubs } = await supabase
+      .from('subscriptions').select('*').eq('user_id', userId)
+    const localSubs = await db.subscriptions.toArray()
+    const cloudSubUids = new Set((cloudSubs || []).map(s => s.uid))
+    for (const s of localSubs) {
+      if (!cloudSubUids.has(s.uid)) {
+        await pushSubscription(userId, s)
+      }
+    }
+    const allCloudSubs = cloudSubs || []
+    if (allCloudSubs.length > 0 || localSubs.length > 0) {
+      // Re-fetch after pushing local-only rows
+      const { data: mergedSubs } = await supabase
+        .from('subscriptions').select('*').eq('user_id', userId)
+      if (mergedSubs && mergedSubs.length > 0) {
+        await db.subscriptions.clear()
+        await db.subscriptions.bulkAdd(mergedSubs.map(s => ({
+          uid: s.uid,
+          name: s.name,
+          amount: Number(s.amount),
+          frequency: s.frequency as Subscription['frequency'],
+          startDate: s.start_date,
+          endDate: s.end_date || undefined,
+          status: s.status as Subscription['status'],
+          category: s.category || undefined,
+          note: s.note || undefined,
+          createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
+        })) as Subscription[])
+      }
+    }
+
+    // Pull loans — push local-only first, then replace with merged set
+    const { data: cloudLoans } = await supabase
+      .from('loans').select('*').eq('user_id', userId)
+    const localLoans = await db.loans.toArray()
+    const cloudLoanUids = new Set((cloudLoans || []).map(l => l.uid))
+    for (const l of localLoans) {
+      if (!cloudLoanUids.has(l.uid)) {
+        await pushLoan(l)
+      }
+    }
+    if ((cloudLoans || []).length > 0 || localLoans.length > 0) {
+      const { data: mergedLoans } = await supabase
+        .from('loans').select('*').eq('user_id', userId)
+      if (mergedLoans && mergedLoans.length > 0) {
+        await db.loans.clear()
+        await db.loans.bulkAdd(mergedLoans.map(l => ({
+          uid: l.uid,
+          person: l.person,
+          totalAmount: Number(l.total_amount),
+          date: l.date,
+          status: l.status as Loan['status'],
+          payments: (l.payments || []) as PaymentRecord[],
+          note: l.note || undefined,
+          createdAt: l.created_at ? new Date(l.created_at).getTime() : Date.now(),
+        })) as Loan[])
+      }
+    }
   } catch (err) {
     console.error('Sync from cloud failed:', err)
   }
@@ -326,11 +386,11 @@ export async function clearAllData(userId: string) {
 }
 
 export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {
-  const { error } = await supabase.from('subscriptions').insert({
+  const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId, uid: s.uid, name: s.name, amount: s.amount, frequency: s.frequency,
     start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null, note: s.note || null,
     created_at: new Date(s.createdAt).toISOString(),
-  })
+  }, { onConflict: 'user_id,uid' })
   if (error) console.error('Push subscription failed:', error)
 }
 
@@ -343,11 +403,11 @@ export async function deleteCloudSubscription(userId: string, uid: string) {
 export async function pushLoan(loan: Omit<Loan, 'id'>) {
   const userId = await getUserId()
   if (!userId) return
-  const { error } = await supabase.from('loans').insert({
+  const { error } = await supabase.from('loans').upsert({
     user_id: userId, uid: loan.uid, person: loan.person, total_amount: loan.totalAmount,
     date: loan.date, status: loan.status, payments: loan.payments, note: loan.note || null,
     created_at: new Date(loan.createdAt).toISOString(),
-  })
+  }, { onConflict: 'user_id,uid' })
   if (error) console.error('Push loan failed:', error)
 }
 

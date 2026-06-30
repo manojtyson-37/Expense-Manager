@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Plus, RefreshCw, PauseCircle, PlayCircle, XCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useSubscriptions, addSubscription, editSubscription, toggleSubscriptionStatus, deleteSubscription } from '../hooks/useSubscriptions'
+import { useSubscriptions, addSubscription, editSubscription, toggleSubscriptionStatus, cancelSubscription, deleteSubscription } from '../hooks/useSubscriptions'
 import { useCategories } from '../hooks/useCategories'
 import { useCurrency } from '../lib/CurrencyContext'
 import DeleteButton from '../components/DeleteButton'
@@ -194,7 +194,7 @@ export default function Subscriptions() {
                   <PlayCircle size={18} />
                 </button>
                 <button
-                  onClick={() => toggleSubscriptionStatus(sub.uid)}
+                  onClick={() => cancelSubscription(sub.uid)}
                   className="p-2 text-text-muted active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
                   title="Cancel"
                 >

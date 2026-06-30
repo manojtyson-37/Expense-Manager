@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
+import { useCurrency } from '../lib/CurrencyContext'
 
 interface Props {
   month: string
@@ -22,6 +23,7 @@ export default function Budgets({ month }: Props) {
   const [limitVal, setLimitVal] = useState('')
   const [limitError, setLimitError] = useState(false)
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const { symbol, format } = useCurrency()
 
   const expenseTotals = new Map(
     (categoryTotals || []).filter(c => c.type === 'expense').map(c => [c.category, c.total])
@@ -91,10 +93,10 @@ export default function Budgets({ month }: Props) {
                 <>
                   <div className="flex justify-between text-xs mb-1.5">
                     <span className={over ? 'text-expense font-medium' : 'text-text-muted'}>
-                      ₹{spent.toLocaleString('en-IN')} spent
+                      {format(spent)} spent
                     </span>
                     <span className="text-text-muted">
-                      ₹{limit.toLocaleString('en-IN')} limit
+                      {format(limit)} limit
                     </span>
                   </div>
                   <div className="h-2 bg-surface-light rounded-full overflow-hidden">
@@ -108,7 +110,7 @@ export default function Budgets({ month }: Props) {
                   </div>
                   {over && (
                     <p className="text-xs text-expense mt-1">
-                      Over by ₹{(spent - limit).toLocaleString('en-IN')}
+                      Over by {format(spent - limit)}
                     </p>
                   )}
                   <button
@@ -122,7 +124,7 @@ export default function Budgets({ month }: Props) {
                 <>
                   <div className="flex gap-2 mt-1">
                     <div className="relative flex-1">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
                       <input
                         type="number"
                         inputMode="numeric"

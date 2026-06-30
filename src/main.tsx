@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register'
 import './index.css'
 import App from './App'
 import { AuthProvider } from './lib/AuthContext'
+import { CurrencyProvider } from './lib/CurrencyContext'
 
 // autoUpdate applies the new SW + reloads on controllerchange. The interval
 // makes an already-open app notice a new deploy within 60s, so users get the
@@ -20,7 +21,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <AuthProvider>
-        <App />
+        <CurrencyProvider>
+          <App />
+        </CurrencyProvider>
       </AuthProvider>
     </HashRouter>
   </StrictMode>,

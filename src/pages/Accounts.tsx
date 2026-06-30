@@ -8,6 +8,7 @@ import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
 import { useNavigate } from 'react-router-dom'
+import { useCurrency } from '../lib/CurrencyContext'
 
 const ACCOUNT_TYPES: { type: AccountType; label: string; icon: string }[] = [
   { type: 'credit_card', label: 'Credit Card', icon: '💳' },
@@ -30,6 +31,7 @@ export default function Accounts() {
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
   const insights = useAccountInsights()
   const [expanded, setExpanded] = useState<string | null>(null)
+  const { format } = useCurrency()
 
   const selectedTypeInfo = ACCOUNT_TYPES.find(t => t.type === accountType)!
 
@@ -112,9 +114,9 @@ export default function Accounts() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{a.name}</div>
-                    {a.isCredit && <div className="text-[11px] text-expense">Outstanding ₹{a.outstanding.toLocaleString('en-IN')}</div>}
+                    {a.isCredit && <div className="text-[11px] text-expense">Outstanding {format(a.outstanding)}</div>}
                   </div>
-                  <span className="text-sm font-semibold text-expense">₹{a.spent.toLocaleString('en-IN')}</span>
+                  <span className="text-sm font-semibold text-expense">{format(a.spent)}</span>
                   <ChevronDown size={16} className={`text-text-muted transition-transform ${expanded === a.name ? 'rotate-180' : ''}`} />
                 </button>
                 {expanded === a.name && (
@@ -122,7 +124,7 @@ export default function Accounts() {
                     {a.byCategory.map(c => (
                       <div key={c.category} className="flex items-center justify-between text-xs">
                         <span className="text-text-muted">{c.category}</span>
-                        <span>₹{c.total.toLocaleString('en-IN')}</span>
+                        <span>{format(c.total)}</span>
                       </div>
                     ))}
                   </div>

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Transaction, Category, Account } from '../db'
 import IconRenderer from './IconRenderer'
 import DeleteButton from './DeleteButton'
+import { useCurrency } from '../lib/CurrencyContext'
 
 interface Props {
   transaction: Transaction
@@ -12,6 +13,7 @@ interface Props {
 
 export default function TransactionItem({ transaction, categories, accounts, onDelete }: Props) {
   const navigate = useNavigate()
+  const { format } = useCurrency()
   const cat = categories?.find(c => c.name === transaction.category)
   const acc = accounts?.find(a => a.name === transaction.account)
 
@@ -35,7 +37,7 @@ export default function TransactionItem({ transaction, categories, accounts, onD
         </div>
       </div>
       <span className={`font-semibold text-sm shrink-0 ${transaction.type === 'income' ? 'text-income' : 'text-expense'}`}>
-        {transaction.type === 'income' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
+        {transaction.type === 'income' ? '+' : '-'}{format(transaction.amount)}
       </span>
       <DeleteButton onConfirm={() => onDelete(transaction.uid)} size={14} />
     </div>

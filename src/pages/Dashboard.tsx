@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import IconRenderer from '../components/IconRenderer'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
+import { useCurrency } from '../lib/CurrencyContext'
 
 interface Props {
   month: string
@@ -56,10 +57,10 @@ function DonutChart({ segments, size = 120 }: { segments: { pct: number; color: 
   )
 }
 
-function formatAmount(n: number): string {
-  if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)}K`
-  return `₹${n.toFixed(0)}`
+function formatAmount(n: number, symbol: string): string {
+  if (n >= 100000) return `${symbol}${(n / 100000).toFixed(1)}L`
+  if (n >= 1000) return `${symbol}${(n / 1000).toFixed(1)}K`
+  return `${symbol}${n.toFixed(0)}`
 }
 
 function prevMonth(month: string): string {
@@ -77,6 +78,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const budgets = useBudgets(month)
   const navigate = useNavigate()
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const { symbol, format } = useCurrency()
 
   const recentTransactions = transactions?.slice(0, 5) || []
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
@@ -116,7 +118,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
         }} />
         <div className="text-text-muted text-xs uppercase tracking-widest mb-1">Cash Balance</div>
         <div className={`text-3xl font-bold tracking-tight ${cashBalance >= 0 ? 'text-primary-light' : 'text-expense'}`}>
-          ₹{cashBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          {format(cashBalance)}
         </div>
         <div className="text-text-muted text-[11px] mt-0.5">Cash, bank, UPI &amp; wallet · card spends shown separately</div>
 
@@ -127,7 +129,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             </div>
             <div>
               <div className="text-xs text-text-muted">Income</div>
-              <div className="text-sm font-semibold text-income">{formatAmount(totalIncome)}</div>
+              <div className="text-sm font-semibold text-income">{formatAmount(totalIncome, symbol)}</div>
               {prevIncome > 0 && (
                 <div className={`text-xs flex items-center gap-0.5 ${incomeDelta >= 0 ? 'text-income' : 'text-expense'}`}>
                   {incomeDelta >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
@@ -142,7 +144,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
             </div>
             <div>
               <div className="text-xs text-text-muted">Expense</div>
-              <div className="text-sm font-semibold text-expense">{formatAmount(totalExpense)}</div>
+              <div className="text-sm font-semibold text-expense">{formatAmount(totalExpense, symbol)}</div>
               {prevExpense > 0 && (
                 <div className={`text-xs flex items-center gap-0.5 ${expenseDelta <= 0 ? 'text-income' : 'text-expense'}`}>
                   {expenseDelta <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
@@ -159,7 +161,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
         <div className="px-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Credit Cards · Outstanding</h2>
-            <span className="text-xs font-semibold text-expense">{formatAmount(creditOutstanding)}</span>
+            <span className="text-xs font-semibold text-expense">{formatAmount(creditOutstanding, symbol)}</span>
           </div>
           <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
             {creditCards.map(card => (
@@ -172,7 +174,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                   <IconRenderer icon={card.icon} size={18} />
                 </div>
                 <span className="flex-1 text-sm font-medium truncate">{card.name}</span>
-                <span className="text-sm font-semibold text-expense">₹{card.outstanding.toLocaleString('en-IN')}</span>
+                <span className="text-sm font-semibold text-expense">{format(card.outstanding)}</span>
               </button>
             ))}
           </div>
@@ -184,7 +186,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
         <div className="flex-1 bg-surface rounded-2xl p-3.5">
           <div className="text-xs text-text-muted uppercase tracking-wider">Today</div>
           <div className="text-lg font-bold text-expense mt-0.5">
-            {todaySpent > 0 ? `₹${todaySpent.toLocaleString('en-IN')}` : '₹0'}
+            {todaySpent > 0 ? format(todaySpent) : format(0)}
           </div>
           <div className="text-xs text-text-muted">spent today</div>
         </div>
@@ -197,8 +199,8 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           <div className="text-xs text-text-muted uppercase tracking-wider">Avg/Day</div>
           <div className="text-lg font-bold text-accent mt-0.5">
             {totalExpense > 0
-              ? `₹${Math.round(totalExpense / new Date().getDate())}`
-              : '₹0'}
+              ? format(Math.round(totalExpense / new Date().getDate()), { minimumFractionDigits: 0 })
+              : format(0, { minimumFractionDigits: 0 })}
           </div>
           <div className="text-xs text-text-muted">daily spend</div>
         </div>
@@ -215,7 +217,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                 <DonutChart segments={donutSegments} size={100} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <div className="text-xs text-text-muted">Total</div>
-                  <div className="text-sm font-bold">{formatAmount(totalExpense)}</div>
+                  <div className="text-sm font-bold">{formatAmount(totalExpense, symbol)}</div>
                 </div>
               </div>
               {/* Legend */}
@@ -258,7 +260,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                       <span>{b.category}</span>
                     </span>
                     <span className={over ? 'text-expense font-medium' : 'text-text-muted'}>
-                      ₹{spent.toLocaleString('en-IN')} / ₹{b.limit.toLocaleString('en-IN')}
+                      {format(spent)} / {format(b.limit)}
                     </span>
                   </div>
                   <div className="h-2 bg-surface-light rounded-full overflow-hidden">
@@ -271,7 +273,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
                     />
                   </div>
                   {over && (
-                    <p className="text-xs text-expense mt-0.5">Over by ₹{(spent - b.limit).toLocaleString('en-IN')}</p>
+                    <p className="text-xs text-expense mt-0.5">Over by {format(spent - b.limit)}</p>
                   )}
                 </div>
               )

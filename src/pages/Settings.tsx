@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { db, type Transaction, type Category, type Account, newUid } from '../db'
 import { useAuth } from '../lib/AuthContext'
 import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
-import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target } from 'lucide-react'
+import { useCurrency } from '../lib/CurrencyContext'
+import { CURRENCIES } from '../lib/currency'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins } from 'lucide-react'
 
 function isValidBackup(data: unknown): data is { transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[] } {
   if (typeof data !== 'object' || data === null) return false
@@ -22,6 +24,7 @@ function isValidBackup(data: unknown): data is { transactions?: unknown[]; categ
 export default function Settings() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { currency, setCurrency } = useCurrency()
   const [showConfirm, setShowConfirm] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
@@ -169,6 +172,27 @@ export default function Settings() {
           {syncMsg && (
             <p className="text-xs text-income mt-2 text-center">{syncMsg}</p>
           )}
+        </div>
+
+        <div className="bg-surface rounded-2xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Coins size={18} className="text-accent" />
+            <span className="font-semibold text-sm">Currency</span>
+          </div>
+          <p className="text-xs text-text-muted mb-3">
+            Applies to all amounts shown across the app.
+          </p>
+          <select
+            value={currency}
+            onChange={e => setCurrency(e.target.value)}
+            className="w-full bg-surface-light rounded-xl px-3 py-2.5 text-sm font-medium"
+          >
+            {CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>
+                {c.symbol} {c.code} — {c.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button

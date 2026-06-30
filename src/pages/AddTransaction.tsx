@@ -6,6 +6,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { addTransaction, updateTransaction } from '../hooks/useTransactions'
 import { db } from '../db'
 import { ArrowLeft } from 'lucide-react'
+import { useCurrency } from '../lib/CurrencyContext'
 
 export default function AddTransaction() {
   const navigate = useNavigate()
@@ -21,6 +22,7 @@ export default function AddTransaction() {
 
   const categories = useCategories(type)
   const accounts = useAccounts()
+  const { symbol } = useCurrency()
 
   useEffect(() => {
     if (isEdit) {
@@ -104,7 +106,7 @@ export default function AddTransaction() {
         <div>
           <label className="text-xs text-text-muted block mb-1">Amount</label>
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg">₹</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-lg">{symbol}</span>
             <input
               type="number"
               inputMode="decimal"

@@ -12,6 +12,38 @@ export interface Transaction {
   createdAt: number
 }
 
+export interface Subscription {
+  id?: number
+  uid: string // stable cross-device id (local + cloud)
+  name: string
+  amount: number
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  startDate: string // YYYY-MM-DD
+  endDate?: string // YYYY-MM-DD
+  status: 'active' | 'paused' | 'cancelled'
+  category?: string
+  note?: string
+  createdAt: number
+}
+
+export interface PaymentRecord {
+  amount: number
+  date: string // YYYY-MM-DD
+  createdAt: number
+}
+
+export interface Loan {
+  id?: number
+  uid: string // stable cross-device id (local + cloud)
+  person: string
+  totalAmount: number
+  date: string // YYYY-MM-DD
+  status: 'pending' | 'returned'
+  payments: PaymentRecord[]
+  note?: string
+  createdAt: number
+}
+
 export function newUid(): string {
   return (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 }
@@ -46,6 +78,8 @@ const db = new Dexie('ExpenseTracker') as Dexie & {
   categories: EntityTable<Category, 'id'>
   accounts: EntityTable<Account, 'id'>
   budgets: EntityTable<Budget, 'id'>
+  subscriptions: EntityTable<Subscription, 'id'>
+  loans: EntityTable<Loan, 'id'>
 }
 
 db.version(1).stores({
@@ -76,6 +110,18 @@ db.version(4).stores({
   await tx.table('transactions').toCollection().modify(t => {
     if (!t.uid) t.uid = newUid()
   })
+})
+
+// v5: add Subscriptions and Loans tables. No backfill needed — new tables.
+db.version(5).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+  subscriptions: '++id, uid, status, startDate, createdAt',
+  loans: '++id, uid, person, status, date, createdAt',
+}).upgrade(async tx => {
+  // No backfill needed — new tables
 })
 
 export async function seedAccounts() {

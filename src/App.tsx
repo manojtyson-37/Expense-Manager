@@ -8,6 +8,7 @@ import AddTransaction from './pages/AddTransaction'
 import Categories from './pages/Categories'
 import Accounts from './pages/Accounts'
 import Budgets from './pages/Budgets'
+import Subscriptions from './pages/Subscriptions'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -89,6 +90,7 @@ export default function App() {
         <Route path="/categories" element={<Categories />} />
         <Route path="/accounts" element={<Accounts />} />
         <Route path="/budgets" element={<Budgets month={currentMonth} />} />
+        <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       <NavBar />

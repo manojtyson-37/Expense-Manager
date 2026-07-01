@@ -5,7 +5,7 @@ import { useAuth } from '../lib/AuthContext'
 import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
-import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw } from 'lucide-react'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users } from 'lucide-react'
 
 function isValidBackup(data: unknown): data is { transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[] } {
   if (typeof data !== 'object' || data === null) return false
@@ -225,6 +225,17 @@ export default function Settings() {
           <div>
             <div className="font-semibold text-sm">Subscriptions</div>
             <div className="text-xs text-text-muted">Track recurring payments and services</div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/loans')}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+        >
+          <Users size={20} className="text-income shrink-0" />
+          <div>
+            <div className="font-semibold text-sm">Money Owed</div>
+            <div className="text-xs text-text-muted">Track money lent to friends and family</div>
           </div>
         </button>
 

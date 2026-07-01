@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newUid, type Loan, type PaymentRecord } from '../db'
-import { getUserId, pushLoan, deleteCloudLoan } from '../lib/sync'
+import { pushLoan, deleteCloudLoan } from '../lib/sync'
 
 export function useLoans() {
   const loans = useLiveQuery(async () => {
@@ -16,26 +16,7 @@ export function useLoans() {
     }, 0)
   })
 
-  const loansByPerson = useLiveQuery(async () => {
-    const all = await db.loans.toArray()
-    const map = new Map<string, Loan>()
-    for (const loan of all) {
-      const existing = map.get(loan.person)
-      if (!existing) {
-        map.set(loan.person, loan)
-      } else {
-        // Combine if multiple loans to same person
-        const existingPaid = existing.payments.reduce((p, r) => p + r.amount, 0)
-        const newPaid = loan.payments.reduce((p, r) => p + r.amount, 0)
-        existing.totalAmount += loan.totalAmount
-        existing.payments.push(...loan.payments)
-        map.set(loan.person, existing)
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  })
-
-  return { loans, totalOwed, loansByPerson }
+  return { loans, totalOwed }
 }
 
 export async function addLoan(person: string, amount: number, date: string, note?: string) {

@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>Expense Tracker — brag</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #121212;
+        --surface: #1c1c1e;
+        --surface-l: #2c2c2e;
+        --emerald: #10b981;
+        --emerald-l: #34d399;
+        --amber: #f59e0b;
+        --red: #ef4444;
+        --text: #f5f5f7;
+        --muted: #8e8e93;
+        --card-a: #1a3a2a;
+        --card-b: #0d1f17;
+        --sys: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #000; font-family: 'Inter', system-ui, sans-serif; }
+      #root, #root * { font-family: 'Inter', system-ui, sans-serif; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+      .bg { position: absolute; inset: 0; background: var(--bg); }
+      .clip { position: absolute; inset: 0; }
+      .center { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 90px; text-align: center; }
+
+      /* ---- generic hidden initial (revealed via .to) ---- */
+      .h0 { opacity: 0; }
+
+      /* ---- Scene 1 hook ---- */
+      .cursor {
+        display: inline-block; width: 14px; height: 96px;
+        background: var(--emerald); border-radius: 4px; vertical-align: middle;
+      }
+      .hook-line { font-size: 96px; font-weight: 800; line-height: 1.05; color: var(--text); letter-spacing: -2px; }
+      .hook-sub { font-size: 44px; font-weight: 500; color: var(--muted); margin-top: 40px; }
+
+      /* ---- caption pill (deadpan label) ---- */
+      .caption {
+        position: absolute; bottom: 150px; left: 0; right: 0; text-align: center;
+        font-size: 34px; font-weight: 600; color: var(--muted);
+        text-transform: uppercase; letter-spacing: 6px;
+      }
+
+      /* ---- phone-ish content blocks ---- */
+      .screen-title { font-size: 76px; font-weight: 800; color: var(--text); }
+      .screen-emoji { font-size: 96px; margin-bottom: 20px; }
+      .screen-tag { font-size: 38px; color: var(--muted); margin-top: 18px; }
+
+      .label { font-size: 30px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 5px; }
+
+      .chip-row { display: flex; flex-direction: column; gap: 28px; margin-top: 60px; width: 660px; }
+      .chip {
+        display: flex; align-items: center; gap: 26px;
+        background: var(--surface); border: 2px solid #3a3a3c;
+        border-radius: 28px; padding: 34px 40px; text-align: left;
+      }
+      .chip .dot { width: 56px; height: 56px; border-radius: 16px; background: var(--surface-l);
+        display: flex; align-items: center; justify-content: center; font-size: 34px; }
+      .chip .name { font-size: 46px; font-weight: 700; color: var(--text); }
+      .chip.on { border-color: var(--emerald); }
+
+      /* ---- Add screen ---- */
+      .toggle { display: flex; gap: 16px; background: var(--surface); border-radius: 22px; padding: 12px; width: 660px; }
+      .toggle div { flex: 1; text-align: center; padding: 24px; border-radius: 16px; font-size: 40px; font-weight: 700; color: var(--muted); }
+      .toggle .sel { background: var(--red); color: #fff; }
+      .amount { display: flex; align-items: center; gap: 16px; margin: 60px 0 50px; }
+      .amount .rs { font-size: 120px; color: var(--muted); font-weight: 600; }
+      .amount .val { font-size: 150px; font-weight: 800; color: var(--text); letter-spacing: -3px; }
+      .cats { display: flex; gap: 22px; margin-bottom: 60px; }
+      .cat { background: var(--surface); border-radius: 20px; padding: 24px 30px; font-size: 36px; color: var(--muted); border: 2px solid transparent; }
+      .cat.sel { background: rgba(16,185,129,0.15); border-color: var(--emerald); color: var(--emerald-l); }
+      .addbtn { width: 660px; padding: 40px; border-radius: 22px; background: var(--emerald); color: #052e22; font-size: 46px; font-weight: 800; text-align: center; }
+
+      /* ---- Dashboard ---- */
+      .dash { width: 760px; }
+      .cashcard {
+        border-radius: 44px; padding: 56px; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, var(--card-a), var(--card-b));
+        border: 1px solid rgba(52,211,153,0.18);
+      }
+      .cashcard .glow { position: absolute; top: -60px; right: -60px; width: 280px; height: 280px; border-radius: 50%; background: var(--emerald); opacity: 0.10; }
+      .cashcard .lbl { font-size: 30px; color: var(--muted); text-transform: uppercase; letter-spacing: 6px; }
+      .cashcard .big { font-size: 130px; font-weight: 800; color: var(--text); margin-top: 14px; letter-spacing: -3px; }
+      .cashcard .row { display: flex; gap: 70px; margin-top: 40px; }
+      .cashcard .row .k { font-size: 30px; color: var(--muted); }
+      .cashcard .row .vi { font-size: 50px; font-weight: 700; color: var(--emerald-l); }
+      .cashcard .row .ve { font-size: 50px; font-weight: 700; color: var(--red); }
+      .stats { display: flex; gap: 26px; margin-top: 40px; }
+      .stat { flex: 1; background: var(--surface); border-radius: 30px; padding: 38px; }
+      .stat .k { font-size: 26px; color: var(--muted); text-transform: uppercase; letter-spacing: 4px; }
+      .stat .v { font-size: 64px; font-weight: 800; margin-top: 10px; }
+      .stat .v.red { color: var(--red); }
+      .stat .v.amber { color: var(--amber); }
+      .ring-wrap { display: flex; align-items: center; gap: 40px; background: var(--surface); border-radius: 30px; padding: 40px; margin-top: 26px; }
+      .ring-wrap .k { font-size: 40px; font-weight: 700; color: var(--text); }
+      .ring-wrap .sub { font-size: 28px; color: var(--muted); margin-top: 6px; }
+
+      /* ---- Outro ---- */
+      .logo { font-size: 96px; font-weight: 800; color: var(--text); letter-spacing: -2px; }
+      .logo .em { color: var(--emerald); }
+      .outro-1 { font-size: 52px; font-weight: 800; color: var(--text); margin-top: 50px; }
+      .outro-2 { font-size: 40px; color: var(--muted); margin-top: 28px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-width="1080" data-height="1920" data-duration="20">
+      <div class="bg"></div>
+
+      <!-- SCENE 1 — HOOK (0–3.5) -->
+      <section id="s1" class="clip center" data-start="0" data-duration="3.5" data-track-index="1">
+        <div class="hook-line h0" id="hook-1">The personal finance</div>
+        <div class="hook-line h0" id="hook-2">crisis is over.<span class="cursor" id="cur"></span></div>
+        <div class="hook-sub h0" id="hook-sub">We built a tracker.</div>
+      </section>
+
+      <!-- SCENE 2 — ONBOARDING (3.5–7.5) -->
+      <section id="s2" class="clip center" data-start="3.5" data-duration="4" data-track-index="1">
+        <div class="screen-emoji h0" id="s2-emoji">👋</div>
+        <div class="screen-title h0" id="s2-title">Welcome!</div>
+        <div class="label h0" id="s2-label" style="margin-top:46px;">Quick Add</div>
+        <div class="chip-row">
+          <div class="chip h0" id="chip1"><div class="dot">🏦</div><div class="name">HDFC 8682</div></div>
+          <div class="chip h0" id="chip2"><div class="dot">📲</div><div class="name">GPay</div></div>
+          <div class="chip h0" id="chip3"><div class="dot">💸</div><div class="name">Paytm</div></div>
+        </div>
+        <div class="caption h0" id="s2-cap">Onboarding institutional partners</div>
+      </section>
+
+      <!-- SCENE 3 — ADD TRANSACTION (7.5–12.0) -->
+      <section id="s3" class="clip center" data-start="7.5" data-duration="4.5" data-track-index="1">
+        <div class="toggle h0" id="s3-toggle"><div class="sel">Expense</div><div>Income</div></div>
+        <div class="amount">
+          <span class="rs h0" id="s3-rs">₹</span><span class="val h0" id="s3-val">0</span>
+        </div>
+        <div class="cats">
+          <div class="cat h0" id="cat1">Food</div>
+          <div class="cat h0" id="cat2">Travel</div>
+          <div class="cat h0" id="cat3">Bills</div>
+        </div>
+        <div class="addbtn h0" id="s3-btn">Add Expense</div>
+        <div class="caption h0" id="s3-cap">Executing a transaction</div>
+      </section>
+
+      <!-- SCENE 4 — DASHBOARD (12.0–17.0) -->
+      <section id="s4" class="clip center" data-start="12" data-duration="5" data-track-index="1">
+        <div class="dash">
+          <div class="cashcard h0" id="cashcard">
+            <div class="glow"></div>
+            <div class="lbl">Cash Balance</div>
+            <div class="big" id="cash-val">₹0</div>
+            <div class="row">
+              <div><div class="k">Income</div><div class="vi">₹48.2K</div></div>
+              <div><div class="k">Expense</div><div class="ve">₹31.7K</div></div>
+            </div>
+          </div>
+          <div class="stats">
+            <div class="stat h0" id="st1"><div class="k">Today</div><div class="v red">₹240</div></div>
+            <div class="stat h0" id="st2"><div class="k">Txns</div><div class="v">128</div></div>
+            <div class="stat h0" id="st3"><div class="k">Budget</div><div class="v amber">70%</div></div>
+          </div>
+          <div class="ring-wrap h0" id="ringwrap">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#2c2c2e" stroke-width="12" />
+              <circle id="ring" cx="60" cy="60" r="50" fill="none" stroke="#f59e0b" stroke-width="12"
+                stroke-linecap="round" stroke-dasharray="314" stroke-dashoffset="314"
+                transform="rotate(-90 60 60)" />
+            </svg>
+            <div><div class="k">Food budget</div><div class="sub">₹7,000 of ₹10,000</div></div>
+          </div>
+        </div>
+        <div class="caption h0" id="s4-cap">Real-time treasury intelligence</div>
+      </section>
+
+      <!-- SCENE 5 — OUTRO (17.0–20.0) -->
+      <section id="s5" class="clip center" data-start="17" data-duration="3" data-track-index="1">
+        <div class="logo h0" id="logo"><span class="em">Expense</span> Tracker</div>
+        <div class="outro-1 h0" id="outro-1">Now you know where it all went.</div>
+        <div class="outro-2 h0" id="outro-2">Spoiler: chai. ₹240 at a time. ☕</div>
+      </section>
+
+      <!-- ===== AUDIO (direct root children) ===== -->
+      <audio id="bgm" src="assets/music/happy-beats-business-moves-vol-11-by-ende-dot-app.mp3" data-start="0" data-duration="20" data-track-index="20" data-volume="0.28"></audio>
+      <audio id="sfx-chip1" src="assets/sfx/chip.ogg" data-start="3.9" data-duration="0.5" data-track-index="21" data-volume="0.5"></audio>
+      <audio id="sfx-chip2" src="assets/sfx/chip.ogg" data-start="4.5" data-duration="0.5" data-track-index="22" data-volume="0.5"></audio>
+      <audio id="sfx-chip3" src="assets/sfx/chip.ogg" data-start="5.1" data-duration="0.5" data-track-index="23" data-volume="0.5"></audio>
+      <audio id="sfx-key1" src="assets/sfx/key.wav" data-start="7.95" data-duration="0.3" data-track-index="24" data-volume="0.45"></audio>
+      <audio id="sfx-key2" src="assets/sfx/key.wav" data-start="8.15" data-duration="0.3" data-track-index="25" data-volume="0.45"></audio>
+      <audio id="sfx-key3" src="assets/sfx/key.wav" data-start="8.35" data-duration="0.3" data-track-index="26" data-volume="0.45"></audio>
+      <audio id="sfx-btn" src="assets/sfx/confirm.ogg" data-start="10.7" data-duration="0.6" data-track-index="27" data-volume="0.6"></audio>
+      <audio id="sfx-ring" src="assets/sfx/tick.ogg" data-start="12.65" data-duration="0.6" data-track-index="28" data-volume="0.6"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // ---- Scene 1: hook (0–3.5) ----
+      tl.to("#hook-1", { opacity: 1, duration: 0.4, ease: "power3.out" }, 0.3)
+        .from("#hook-1", { y: 40, duration: 0.4, ease: "power3.out" }, 0.3)
+        .to("#hook-2", { opacity: 1, duration: 0.4, ease: "power3.out" }, 0.55)
+        .from("#hook-2", { y: 40, duration: 0.4, ease: "power3.out" }, 0.55)
+        .to("#cur", { opacity: 0, duration: 0.001, repeat: 5, yoyo: true, repeatDelay: 0.28 }, 1.1)
+        .to("#hook-sub", { opacity: 1, duration: 0.4, ease: "power2.out" }, 1.9)
+        .from("#hook-sub", { y: 24, duration: 0.4, ease: "power2.out" }, 1.9);
+
+      // ---- Scene 2: onboarding (3.5–7.5) ----
+      tl.to("#s2-emoji", { opacity: 1, duration: 0.35 }, 3.6)
+        .from("#s2-emoji", { scale: 0.6, duration: 0.35, ease: "back.out(2)" }, 3.6)
+        .to("#s2-title", { opacity: 1, duration: 0.35 }, 3.7)
+        .to("#s2-label", { opacity: 1, duration: 0.3 }, 3.85);
+      // chips one by one (sfx at 3.9 / 4.5 / 5.1)
+      [["#chip1", 3.9], ["#chip2", 4.5], ["#chip3", 5.1]].forEach(([sel, t]) => {
+        tl.to(sel, { opacity: 1, duration: 0.3, ease: "power2.out" }, t)
+          .from(sel, { x: -40, duration: 0.3, ease: "power2.out" }, t)
+          .to(sel, { borderColor: "#10b981", duration: 0.25 }, t + 0.15);
+      });
+      tl.to("#s2-cap", { opacity: 1, duration: 0.4 }, 5.6);
+
+      // ---- Scene 3: add transaction (7.5–12.0) ----
+      tl.to("#s3-toggle", { opacity: 1, duration: 0.35 }, 7.6)
+        .from("#s3-toggle", { y: 30, duration: 0.35, ease: "power2.out" }, 7.6)
+        .to("#s3-rs", { opacity: 1, duration: 0.3 }, 7.85)
+        .to("#s3-val", { opacity: 1, duration: 0.3 }, 7.85);
+      // typed amount 0 -> 240 (deterministic onUpdate)
+      const amt = { v: 0 };
+      tl.to(amt, {
+        v: 240, duration: 0.7, ease: "none",
+        onUpdate: () => { document.getElementById("s3-val").textContent = Math.round(amt.v); }
+      }, 7.9);
+      // category select
+      tl.to("#cat1", { opacity: 1, duration: 0.25 }, 8.8)
+        .to("#cat2", { opacity: 1, duration: 0.25 }, 8.9)
+        .to("#cat3", { opacity: 1, duration: 0.25 }, 9.0)
+        .to("#cat1", { backgroundColor: "rgba(16,185,129,0.15)", borderColor: "#10b981", color: "#34d399", duration: 0.3 }, 9.4);
+      // button press
+      tl.to("#s3-btn", { opacity: 1, duration: 0.3 }, 10.2)
+        .from("#s3-btn", { y: 30, duration: 0.3, ease: "power2.out" }, 10.2)
+        .to("#s3-btn", { scale: 0.94, duration: 0.12, ease: "power2.in" }, 10.7)
+        .to("#s3-btn", { scale: 1, duration: 0.18, ease: "power2.out" }, 10.82)
+        .to("#s3-cap", { opacity: 1, duration: 0.4 }, 10.0);
+
+      // ---- Scene 4: dashboard (12.0–17.0) ----
+      tl.to("#cashcard", { opacity: 1, duration: 0.4, ease: "power2.out" }, 12.05)
+        .from("#cashcard", { y: 50, scale: 0.96, duration: 0.4, ease: "power2.out" }, 12.05);
+      // cash balance count up to 16,540
+      const cash = { v: 0 };
+      tl.to(cash, {
+        v: 16540, duration: 0.8, ease: "power1.out",
+        onUpdate: () => { document.getElementById("cash-val").textContent = "₹" + Math.round(cash.v).toLocaleString("en-IN"); }
+      }, 12.2);
+      // subtle card breathing presence
+      tl.to("#cashcard", { scale: 1.012, duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: 1 }, 12.6);
+      // stats arrive
+      tl.to("#st1", { opacity: 1, duration: 0.3 }, 12.7)
+        .from("#st1", { y: 30, duration: 0.3 }, 12.7)
+        .to("#st2", { opacity: 1, duration: 0.3 }, 12.95)
+        .from("#st2", { y: 30, duration: 0.3 }, 12.95)
+        .to("#st3", { opacity: 1, duration: 0.3 }, 13.2)
+        .from("#st3", { y: 30, duration: 0.3 }, 13.2);
+      // budget ring fills — beat-locked: 12.65s strong cue lead-in, lands ~13.4
+      tl.to("#ringwrap", { opacity: 1, duration: 0.3 }, 13.0)
+        .to("#ring", { attr: { "stroke-dashoffset": 94 }, duration: 0.9, ease: "power2.out" }, 13.0); // ~70%
+      tl.to("#s4-cap", { opacity: 1, duration: 0.4 }, 14.0);
+
+      // ---- Scene 5: outro (17.0–20.0) ----
+      tl.to("#logo", { opacity: 1, duration: 0.45, ease: "power2.out" }, 17.1)
+        .from("#logo", { y: 30, duration: 0.45, ease: "power2.out" }, 17.1)
+        .to("#outro-1", { opacity: 1, duration: 0.4 }, 17.7)
+        .from("#outro-1", { y: 24, duration: 0.4, ease: "power2.out" }, 17.7)
+        .to("#outro-2", { opacity: 1, duration: 0.4 }, 18.4);
+
+      // ---- music fade out under outro ----
+      tl.to("#bgm", { volume: 0, duration: 1.8, ease: "power1.in" }, 18.2);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

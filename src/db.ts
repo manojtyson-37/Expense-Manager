@@ -120,7 +120,7 @@ db.version(5).stores({
   budgets: '++id, category, month',
   subscriptions: '++id, uid, status, startDate, createdAt',
   loans: '++id, uid, person, status, date, createdAt',
-}).upgrade(async tx => {
+}).upgrade(async () => {
   // No backfill needed — new tables
 })
 

@@ -1,0 +1,12 @@
+Now you know where it all went. Spoiler: chai. ☕
+
+Expense Tracker — offline-first, ₹-native, cloud-synced. Track every rupee, regret it in real time. 📉
+
+Built it in a weekend, /brag'd it in one command. You built it? Now brag.
+
+---
+Alt (X, short):
+The personal finance crisis is over. We built a tracker. Turns out it was all chai. ☕ ₹240 at a time.
+
+Alt (LinkedIn):
+Turned my weekend expense-tracker PWA into a launch video with one command (/brag). Real UI, real ₹ numbers — and the honest punchline every tracker delivers: now you know exactly where the money went. (It was snacks.)

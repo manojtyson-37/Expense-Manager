@@ -47,7 +47,7 @@ export async function addSubscription(name: string, amount: number, frequency: S
 export async function editSubscription(uid: string, updates: Partial<Subscription>) {
   const sub = await db.subscriptions.where('uid').equals(uid).first()
   if (!sub) return
-  await db.subscriptions.update(sub.id!, { ...updates, createdAt: Date.now() })
+  await db.subscriptions.update(sub.id!, updates)
   const updated = await db.subscriptions.get(sub.id!)
   const userId = await getUserId()
   if (userId && updated) {

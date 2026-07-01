@@ -290,8 +290,9 @@ export default function Subscriptions() {
           className="fixed inset-0 bg-black/50 z-50 flex items-end"
           onClick={e => { if (e.target === e.currentTarget) closeModal() }}
         >
-          <div className="w-full bg-surface rounded-t-3xl p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90svh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+          <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">
+            {/* Header — not scrollable */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
               <h2 className="text-base font-bold">{editingUid ? 'Edit Subscription' : 'Add Subscription'}</h2>
               <button
                 onClick={closeModal}
@@ -301,104 +302,109 @@ export default function Subscriptions() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Name */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Name *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Netflix, Spotify"
-                  value={form.name}
-                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full text-sm"
-                  autoFocus
-                />
-                {errors.name && <p className="text-xs text-expense mt-1">{errors.name}</p>}
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+            {/* Scrollable fields */}
+            <div className="overflow-y-auto flex-1 px-5">
+              <div className="space-y-4 pb-2">
+                {/* Name */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Name *</label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={form.amount}
-                    onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-                    style={{ paddingLeft: '1.75rem' }}
+                    type="text"
+                    placeholder="e.g. Netflix, Spotify"
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full text-sm"
+                    autoFocus
+                  />
+                  {errors.name && <p className="text-xs text-expense mt-1">{errors.name}</p>}
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={form.amount}
+                      onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+                      style={{ paddingLeft: '1.75rem' }}
+                      className="w-full text-sm"
+                    />
+                  </div>
+                  {errors.amount && <p className="text-xs text-expense mt-1">{errors.amount}</p>}
+                </div>
+
+                {/* Frequency */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Frequency</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {FREQUENCIES.map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => setForm(prev => ({ ...prev, frequency: f.value }))}
+                        className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                          form.frequency === f.value
+                            ? 'bg-primary text-white'
+                            : 'bg-surface-light text-text-muted'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Start Date *</label>
+                  <input
+                    type="date"
+                    value={form.startDate}
+                    onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                  {errors.startDate && <p className="text-xs text-expense mt-1">{errors.startDate}</p>}
+                </div>
+
+                {/* Category (optional) */}
+                {categories && categories.length > 0 && (
+                  <div>
+                    <label className="text-xs text-text-muted font-medium block mb-1.5">Category (optional)</label>
+                    <select
+                      value={form.category}
+                      onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                      className="w-full text-sm"
+                    >
+                      <option value="">None</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Note */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Family plan"
+                    value={form.note}
+                    onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
                     className="w-full text-sm"
                   />
                 </div>
-                {errors.amount && <p className="text-xs text-expense mt-1">{errors.amount}</p>}
               </div>
+            </div>
 
-              {/* Frequency */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Frequency</label>
-                <div className="flex gap-2 flex-wrap">
-                  {FREQUENCIES.map(f => (
-                    <button
-                      key={f.value}
-                      onClick={() => setForm(prev => ({ ...prev, frequency: f.value }))}
-                      className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                        form.frequency === f.value
-                          ? 'bg-primary text-white'
-                          : 'bg-surface-light text-text-muted'
-                      }`}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Start Date *</label>
-                <input
-                  type="date"
-                  value={form.startDate}
-                  onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                  className="w-full text-sm"
-                />
-                {errors.startDate && <p className="text-xs text-expense mt-1">{errors.startDate}</p>}
-              </div>
-
-              {/* Category (optional) */}
-              {categories && categories.length > 0 && (
-                <div>
-                  <label className="text-xs text-text-muted font-medium block mb-1.5">Category (optional)</label>
-                  <select
-                    value={form.category}
-                    onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                    className="w-full text-sm"
-                  >
-                    <option value="">None</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.name}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Note */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Family plan"
-                  value={form.note}
-                  onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
-                  className="w-full text-sm"
-                />
-              </div>
-
-              {/* Save button */}
+            {/* Save button — sticky footer, always visible above keyboard */}
+            <div className="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
               <button
                 onClick={handleSave}
-                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-semibold mt-2"
+                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-semibold"
               >
                 {editingUid ? 'Save Changes' : 'Add Subscription'}
               </button>

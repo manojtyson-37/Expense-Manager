@@ -219,7 +219,7 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           <div className="text-lg font-bold text-accent mt-0.5">
             {format(totalRecurring || 0)}
           </div>
-          <div className="text-xs text-text-muted">/month subscriptions</div>
+          <div className="text-xs text-text-muted">monthly subscriptions</div>
         </button>
         <button onClick={() => navigate('/loans')} className="flex-1 bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
           <div className="text-xs text-text-muted uppercase tracking-wider">Money Owed</div>

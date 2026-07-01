@@ -188,20 +188,20 @@ export default function Dashboard({ month, onMonthChange }: Props) {
       )}
 
       {/* Quick Stats Row */}
-      <div className="px-4 flex flex-wrap gap-3 mb-5">
-        <div className="flex-1 min-w-[4.5rem] bg-surface rounded-2xl p-3.5">
+      <div className="px-4 flex gap-3 mb-3">
+        <div className="flex-1 bg-surface rounded-2xl p-3.5">
           <div className="text-xs text-text-muted uppercase tracking-wider">Today</div>
           <div className="text-lg font-bold text-expense mt-0.5">
             {todaySpent > 0 ? format(todaySpent) : format(0)}
           </div>
           <div className="text-xs text-text-muted">spent today</div>
         </div>
-        <div className="flex-1 min-w-[4.5rem] bg-surface rounded-2xl p-3.5">
+        <div className="flex-1 bg-surface rounded-2xl p-3.5">
           <div className="text-xs text-text-muted uppercase tracking-wider">Txns</div>
           <div className="text-lg font-bold mt-0.5">{transactions?.length || 0}</div>
           <div className="text-xs text-text-muted">this month</div>
         </div>
-        <div className="flex-1 min-w-[4.5rem] bg-surface rounded-2xl p-3.5">
+        <div className="flex-1 bg-surface rounded-2xl p-3.5">
           <div className="text-xs text-text-muted uppercase tracking-wider">Avg/Day</div>
           <div className="text-lg font-bold text-accent mt-0.5">
             {totalExpense > 0
@@ -210,22 +210,24 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           </div>
           <div className="text-xs text-text-muted">daily spend</div>
         </div>
-        <div className="flex-1 min-w-[4.5rem] bg-surface rounded-2xl p-3.5">
+      </div>
+
+      {/* Recurring & Loans Row */}
+      <div className="px-4 flex gap-3 mb-5">
+        <button onClick={() => navigate('/subscriptions')} className="flex-1 bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
           <div className="text-xs text-text-muted uppercase tracking-wider">Recurring</div>
           <div className="text-lg font-bold text-accent mt-0.5">
             {format(totalRecurring || 0)}
           </div>
           <div className="text-xs text-text-muted">/month subscriptions</div>
-        </div>
-        {totalOwed && totalOwed > 0 && (
-          <button onClick={() => navigate('/loans')} className="flex-1 min-w-[4.5rem] bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
-            <div className="text-xs text-text-muted uppercase tracking-wider">Money Owed</div>
-            <div className="text-lg font-bold text-income mt-0.5">
-              {format(totalOwed)}
-            </div>
-            <div className="text-xs text-text-muted">from friends</div>
-          </button>
-        )}
+        </button>
+        <button onClick={() => navigate('/loans')} className="flex-1 bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
+          <div className="text-xs text-text-muted uppercase tracking-wider">Money Owed</div>
+          <div className="text-lg font-bold text-income mt-0.5">
+            {format((totalOwed ?? 0))}
+          </div>
+          <div className="text-xs text-text-muted">from friends</div>
+        </button>
       </div>
 
       {/* Spending Breakdown with Donut */}

@@ -288,8 +288,8 @@ export default function Loans() {
           className="fixed inset-0 bg-black/50 z-50 flex items-end"
           onClick={e => { if (e.target === e.currentTarget) closeAdd() }}
         >
-          <div className="w-full bg-surface rounded-t-3xl p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90svh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+          <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
               <h2 className="text-base font-bold">Add Loan</h2>
               <button
                 onClick={closeAdd}
@@ -299,66 +299,70 @@ export default function Loans() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Person */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Person *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Alex, Mom"
-                  value={addForm.person}
-                  onChange={e => setAddForm(f => ({ ...f, person: e.target.value }))}
-                  className="w-full text-sm"
-                  autoFocus
-                />
-                {addErrors.person && <p className="text-xs text-expense mt-1">{addErrors.person}</p>}
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+            <div className="overflow-y-auto flex-1 px-5">
+              <div className="space-y-4 pb-2">
+                {/* Person */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Person *</label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={addForm.amount}
-                    onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))}
-                    style={{ paddingLeft: '1.75rem' }}
+                    type="text"
+                    placeholder="e.g. Alex, Mom"
+                    value={addForm.person}
+                    onChange={e => setAddForm(f => ({ ...f, person: e.target.value }))}
+                    className="w-full text-sm"
+                    autoFocus
+                  />
+                  {addErrors.person && <p className="text-xs text-expense mt-1">{addErrors.person}</p>}
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={addForm.amount}
+                      onChange={e => setAddForm(f => ({ ...f, amount: e.target.value }))}
+                      style={{ paddingLeft: '1.75rem' }}
+                      className="w-full text-sm"
+                    />
+                  </div>
+                  {addErrors.amount && <p className="text-xs text-expense mt-1">{addErrors.amount}</p>}
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Date Lent *</label>
+                  <input
+                    type="date"
+                    value={addForm.date}
+                    onChange={e => setAddForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                  {addErrors.date && <p className="text-xs text-expense mt-1">{addErrors.date}</p>}
+                </div>
+
+                {/* Note */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. For groceries"
+                    value={addForm.note}
+                    onChange={e => setAddForm(f => ({ ...f, note: e.target.value }))}
                     className="w-full text-sm"
                   />
                 </div>
-                {addErrors.amount && <p className="text-xs text-expense mt-1">{addErrors.amount}</p>}
               </div>
+            </div>
 
-              {/* Date */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Date Lent *</label>
-                <input
-                  type="date"
-                  value={addForm.date}
-                  onChange={e => setAddForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full text-sm"
-                />
-                {addErrors.date && <p className="text-xs text-expense mt-1">{addErrors.date}</p>}
-              </div>
-
-              {/* Note */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. For groceries"
-                  value={addForm.note}
-                  onChange={e => setAddForm(f => ({ ...f, note: e.target.value }))}
-                  className="w-full text-sm"
-                />
-              </div>
-
+            <div className="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
               <button
                 onClick={handleAddSave}
-                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-semibold mt-2"
+                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-semibold"
               >
                 Add Loan
               </button>
@@ -373,8 +377,8 @@ export default function Loans() {
           className="fixed inset-0 bg-black/50 z-50 flex items-end"
           onClick={e => { if (e.target === e.currentTarget) closePayment() }}
         >
-          <div className="w-full bg-surface rounded-t-3xl p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90svh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
+          <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
               <div>
                 <h2 className="text-base font-bold">Log Return Payment</h2>
                 <p className="text-xs text-text-muted mt-0.5">
@@ -389,41 +393,45 @@ export default function Loans() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              {/* Amount */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Amount Returned *</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={paymentForm.amount}
-                    onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
-                    style={{ paddingLeft: '1.75rem' }}
-                    className="w-full text-sm"
-                    autoFocus
-                  />
+            <div className="overflow-y-auto flex-1 px-5">
+              <div className="space-y-4 pb-2">
+                {/* Amount */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Amount Returned *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={paymentForm.amount}
+                      onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                      style={{ paddingLeft: '1.75rem' }}
+                      className="w-full text-sm"
+                      autoFocus
+                    />
+                  </div>
+                  {paymentErrors.amount && <p className="text-xs text-expense mt-1">{paymentErrors.amount}</p>}
                 </div>
-                {paymentErrors.amount && <p className="text-xs text-expense mt-1">{paymentErrors.amount}</p>}
-              </div>
 
-              {/* Date */}
-              <div>
-                <label className="text-xs text-text-muted font-medium block mb-1.5">Date Received *</label>
-                <input
-                  type="date"
-                  value={paymentForm.date}
-                  onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full text-sm"
-                />
-                {paymentErrors.date && <p className="text-xs text-expense mt-1">{paymentErrors.date}</p>}
+                {/* Date */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Date Received *</label>
+                  <input
+                    type="date"
+                    value={paymentForm.date}
+                    onChange={e => setPaymentForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                  {paymentErrors.date && <p className="text-xs text-expense mt-1">{paymentErrors.date}</p>}
+                </div>
               </div>
+            </div>
 
+            <div className="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
               <button
                 onClick={handlePaymentSave}
-                className="w-full py-3 bg-income text-white rounded-xl text-sm font-semibold mt-2"
+                className="w-full py-3 bg-income text-white rounded-xl text-sm font-semibold"
               >
                 Log Payment
               </button>

@@ -137,62 +137,71 @@ export default function Accounts() {
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={closeForm}>
-        <div className="bg-surface rounded-t-2xl p-4 space-y-3 w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-1">
+        <div className="bg-surface rounded-t-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">
             <span className="text-sm font-semibold">{editingId ? 'Edit Account' : 'Add Account'}</span>
             <button onClick={closeForm} className="p-3 -m-2 text-text-muted min-h-[44px] min-w-[44px] flex items-center justify-center"><X size={18} /></button>
           </div>
 
-          <div>
-            <label className="text-xs text-text-muted block mb-1">Account Type</label>
-            <div className="flex flex-wrap gap-2">
-              {ACCOUNT_TYPES.map(t => (
-                <button
-                  key={t.type}
-                  onClick={() => setAccountType(t.type)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                    accountType === t.type
-                      ? 'bg-primary/20 border border-primary'
-                      : 'bg-surface-light border border-transparent'
-                  }`}
-                >
-                  <IconRenderer icon={t.icon} size={16} />
-                  <span>{t.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Scrollable fields */}
+          <div className="overflow-y-auto flex-1 px-4">
+            <div className="space-y-3 pb-2">
+              <div>
+                <label className="text-xs text-text-muted block mb-1">Account Type</label>
+                <div className="flex flex-wrap gap-2">
+                  {ACCOUNT_TYPES.map(t => (
+                    <button
+                      key={t.type}
+                      onClick={() => setAccountType(t.type)}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                        accountType === t.type
+                          ? 'bg-primary/20 border border-primary'
+                          : 'bg-surface-light border border-transparent'
+                      }`}
+                    >
+                      <IconRenderer icon={t.icon} size={16} />
+                      <span>{t.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div>
-            <label className="text-xs text-text-muted block mb-1">Account Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder={`e.g. HDFC ${selectedTypeInfo.label}`}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-text-muted block mb-1">Color</label>
-            <div className="flex flex-wrap gap-2">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
-                  style={{ backgroundColor: c }}
+              <div>
+                <label className="text-xs text-text-muted block mb-1">Account Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder={`e.g. HDFC ${selectedTypeInfo.label}`}
                 />
-              ))}
+              </div>
+
+              <div>
+                <label className="text-xs text-text-muted block mb-1">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLORS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`w-8 h-8 rounded-full ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-bg' : ''}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            className="w-full py-2.5 bg-primary rounded-xl text-white font-medium"
-          >
-            {editingId ? 'Save Changes' : 'Add Account'}
-          </button>
+          {/* Sticky footer — always visible above keyboard */}
+          <div className="px-4 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
+            <button
+              onClick={handleSubmit}
+              className="w-full py-2.5 bg-primary rounded-xl text-white font-medium"
+            >
+              {editingId ? 'Save Changes' : 'Add Account'}
+            </button>
+          </div>
         </div>
         </div>
       )}

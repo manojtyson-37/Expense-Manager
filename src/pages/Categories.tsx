@@ -101,7 +101,7 @@ export default function Categories() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={closeForm}>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60" onClick={closeForm}>
         <div className="bg-surface rounded-t-2xl w-full max-w-md max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">

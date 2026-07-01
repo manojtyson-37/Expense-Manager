@@ -285,7 +285,7 @@ export default function Loans() {
       {/* Add Loan Modal */}
       {showAddModal && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          className="fixed inset-0 bg-black/50 z-[60] flex items-end"
           onClick={e => { if (e.target === e.currentTarget) closeAdd() }}
         >
           <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">
@@ -374,7 +374,7 @@ export default function Loans() {
       {/* Log Return Payment Modal */}
       {paymentLoan && (
         <div
-          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          className="fixed inset-0 bg-black/50 z-[60] flex items-end"
           onClick={e => { if (e.target === e.currentTarget) closePayment() }}
         >
           <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">

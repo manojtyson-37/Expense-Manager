@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Plus, HandCoins, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, HandCoins, ChevronDown, ChevronUp, Pencil } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useLoans, addLoan, logLoanPayment, deleteLoan, updateLoan } from '../hooks/useLoans'
 import { useCurrency } from '../lib/CurrencyContext'
@@ -226,6 +226,12 @@ export default function Loans() {
                   Log Return
                 </button>
               )}
+              <button
+                onClick={() => openEdit(loan)}
+                className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-text-muted active:text-primary"
+              >
+                <Pencil size={15} />
+              </button>
               <DeleteButton onConfirm={() => handleDelete(loan)} size={14} />
             </div>
           </div>

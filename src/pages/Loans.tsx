@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Plus, HandCoins, ChevronDown, ChevronUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useLoans, addLoan, logLoanPayment, deleteLoan } from '../hooks/useLoans'
+import { useLoans, addLoan, logLoanPayment, deleteLoan, updateLoan } from '../hooks/useLoans'
 import { useCurrency } from '../lib/CurrencyContext'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
@@ -50,6 +50,10 @@ export default function Loans() {
   const [paymentForm, setPaymentForm] = useState<PaymentFormState>(emptyPaymentForm())
   const [paymentErrors, setPaymentErrors] = useState<Partial<PaymentFormState>>({})
 
+  const [editLoan, setEditLoan] = useState<Loan | null>(null)
+  const [editForm, setEditForm] = useState<AddFormState>(emptyAddForm())
+  const [editErrors, setEditErrors] = useState<Partial<AddFormState>>({})
+
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
 
   // — Add Loan modal —
@@ -84,6 +88,35 @@ export default function Loans() {
       addForm.note.trim() || undefined,
     )
     closeAdd()
+  }
+
+  // — Edit Loan modal —
+  function openEdit(loan: Loan) {
+    setEditLoan(loan)
+    setEditForm({ person: loan.person, amount: String(loan.totalAmount), date: loan.date, note: loan.note ?? '' })
+    setEditErrors({})
+  }
+
+  function closeEdit() {
+    setEditLoan(null)
+    setEditForm(emptyAddForm())
+    setEditErrors({})
+  }
+
+  function validateEdit(): boolean {
+    const e: Partial<AddFormState> = {}
+    if (!editForm.person.trim()) e.person = 'Person name is required'
+    const amt = parseFloat(editForm.amount)
+    if (isNaN(amt) || amt <= 0) e.amount = 'Enter an amount greater than 0'
+    if (!editForm.date) e.date = 'Date is required'
+    setEditErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  async function handleEditSave() {
+    if (!editLoan?.id || !validateEdit()) return
+    await updateLoan(editLoan.id, editForm.person.trim(), parseFloat(editForm.amount), editForm.date, editForm.note.trim() || undefined)
+    closeEdit()
   }
 
   // — Log Payment modal —
@@ -148,7 +181,7 @@ export default function Loans() {
       <div className="bg-surface rounded-2xl overflow-hidden">
         {/* Main row */}
         <div className="p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3" onClick={() => openEdit(loan)} style={{ cursor: 'pointer' }}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold truncate">{loan.person}</span>
@@ -184,7 +217,7 @@ export default function Loans() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-0 shrink-0">
+            <div className="flex items-center gap-0 shrink-0" onClick={e => e.stopPropagation()}>
               {!isReturned && (
                 <button
                   onClick={() => openPayment(loan)}
@@ -200,7 +233,7 @@ export default function Loans() {
           {/* Payment history toggle */}
           {loan.payments.length > 0 && loan.id !== undefined && (
             <button
-              onClick={() => toggleExpanded(loan.id!)}
+              onClick={e => { e.stopPropagation(); toggleExpanded(loan.id!) }}
               className="flex items-center gap-1 mt-2 text-xs text-text-muted active:opacity-60"
             >
               {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
@@ -434,6 +467,91 @@ export default function Loans() {
                 className="w-full py-3 bg-income text-white rounded-xl text-sm font-semibold"
               >
                 Log Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Loan Modal */}
+      {editLoan && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[60] flex items-end"
+          onClick={e => { if (e.target === e.currentTarget) closeEdit() }}
+        >
+          <div className="w-full bg-surface rounded-t-3xl flex flex-col max-h-[90svh]">
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 shrink-0">
+              <h2 className="text-base font-bold">Edit Loan</h2>
+              <button
+                onClick={closeEdit}
+                className="p-2 text-text-muted active:text-primary min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 px-5">
+              <div className="space-y-4 pb-2">
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Person *</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Alex, Mom"
+                    value={editForm.person}
+                    onChange={e => setEditForm(f => ({ ...f, person: e.target.value }))}
+                    className="w-full text-sm"
+                    autoFocus
+                  />
+                  {editErrors.person && <p className="text-xs text-expense mt-1">{editErrors.person}</p>}
+                </div>
+
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm">{symbol}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={editForm.amount}
+                      onChange={e => setEditForm(f => ({ ...f, amount: e.target.value }))}
+                      style={{ paddingLeft: '1.75rem' }}
+                      className="w-full text-sm"
+                    />
+                  </div>
+                  {editErrors.amount && <p className="text-xs text-expense mt-1">{editErrors.amount}</p>}
+                </div>
+
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Date Lent *</label>
+                  <input
+                    type="date"
+                    value={editForm.date}
+                    onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                  {editErrors.date && <p className="text-xs text-expense mt-1">{editErrors.date}</p>}
+                </div>
+
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. For groceries"
+                    value={editForm.note}
+                    onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 pt-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] shrink-0">
+              <button
+                onClick={handleEditSave}
+                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-semibold"
+              >
+                Save Changes
               </button>
             </div>
           </div>

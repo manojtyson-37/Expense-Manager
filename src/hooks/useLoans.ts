@@ -49,6 +49,17 @@ export async function logLoanPayment(id: number, amount: number, date: string) {
   if (updated) await pushLoan(updated)
 }
 
+export async function updateLoan(id: number, person: string, amount: number, date: string, note?: string) {
+  const loan = await db.loans.get(id)
+  if (!loan) return
+  const updated = { ...loan, person, totalAmount: amount, date, note, createdAt: Date.now() }
+  // Recompute status in case amount changed
+  const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0)
+  updated.status = totalPaid >= amount ? 'returned' : 'pending'
+  await db.loans.update(id, updated)
+  await pushLoan(updated)
+}
+
 export async function deleteLoan(id: number) {
   const loan = await db.loans.get(id)
   if (loan) {

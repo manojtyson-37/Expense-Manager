@@ -36,13 +36,145 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+interface LoanCardProps {
+  loan: Loan
+  expandedIds: Set<number>
+  toggleExpanded: (id: number) => void
+  openEdit: (loan: Loan) => void
+  openPayment: (loan: Loan) => void
+  handleDelete: (loan: Loan) => void
+  format: (n: number) => string
+}
+
+function LoanCard({ loan, expandedIds, toggleExpanded, openEdit, openPayment, handleDelete, format }: LoanCardProps) {
+  const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0)
+  const balance = Math.max(0, loan.totalAmount - totalPaid)
+  const isReturned = loan.status === 'returned'
+  const isExpanded = loan.id !== undefined && expandedIds.has(loan.id)
+  const loanIsBorrowed = (loan.type ?? 'lent') === 'borrowed'
+
+  return (
+    <div className="bg-surface rounded-2xl overflow-hidden">
+      <div className="p-4">
+        <div className="flex items-start gap-3" onClick={() => openEdit(loan)} style={{ cursor: 'pointer' }}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold truncate">{loan.person}</span>
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                isReturned
+                  ? 'text-income bg-income/10'
+                  : loanIsBorrowed
+                    ? 'text-expense bg-expense/10'
+                    : 'text-amber-500 bg-amber-500/10'
+              }`}>
+                {isReturned ? (loanIsBorrowed ? 'Paid' : 'Returned') : 'Pending'}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+              <span className="text-base font-bold">{format(loan.totalAmount)}</span>
+              <span className="text-xs text-text-muted">{loanIsBorrowed ? 'borrowed' : 'lent'}</span>
+              {totalPaid > 0 && (
+                <>
+                  <span className="text-xs text-text-muted">·</span>
+                  <span className={`text-xs ${loanIsBorrowed ? 'text-expense' : 'text-income'}`}>
+                    {format(totalPaid)} {loanIsBorrowed ? 'paid' : 'back'}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {!isReturned && (
+              <p className={`text-sm font-semibold mt-0.5 ${loanIsBorrowed ? 'text-expense' : 'text-amber-500'}`}>
+                {format(balance)} {loanIsBorrowed ? 'left to pay' : 'owed'}
+              </p>
+            )}
+
+            <p className="text-xs text-text-muted mt-0.5">
+              {loanIsBorrowed ? 'Borrowed' : 'Lent'} {fmtDate(loan.date)}
+            </p>
+            {loan.note && (
+              <p className="text-xs text-text-muted mt-0.5 truncate">{loan.note}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-0 shrink-0" onClick={e => e.stopPropagation()}>
+            {!isReturned && (
+              <button
+                onClick={() => openPayment(loan)}
+                className={`px-2.5 py-2 rounded-xl text-xs font-semibold min-h-[44px] flex items-center justify-center whitespace-nowrap ${
+                  loanIsBorrowed
+                    ? 'bg-expense/10 text-expense'
+                    : 'bg-income/10 text-income'
+                }`}
+              >
+                {loanIsBorrowed ? 'Log Payment' : 'Log Return'}
+              </button>
+            )}
+            <button
+              onClick={() => openEdit(loan)}
+              className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-text-muted active:text-primary"
+            >
+              <Pencil size={15} />
+            </button>
+            <DeleteButton onConfirm={() => handleDelete(loan)} size={14} />
+          </div>
+        </div>
+
+        {loan.payments.length > 0 && loan.id !== undefined && (
+          <button
+            onClick={e => { e.stopPropagation(); toggleExpanded(loan.id!) }}
+            className="flex items-center gap-1 mt-2 text-xs text-text-muted active:opacity-60"
+          >
+            {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {loan.payments.length} payment{loan.payments.length !== 1 ? 's' : ''}
+          </button>
+        )}
+      </div>
+
+      {isExpanded && loan.payments.length > 0 && (
+        <div className="border-t border-surface-light px-4 pb-3 pt-2 space-y-2">
+          {loan.payments
+            .slice()
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+            .map((p, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className="text-xs text-text-muted">{fmtDate(p.date)}</span>
+                <span className={`text-xs font-medium ${loanIsBorrowed ? 'text-expense' : 'text-income'}`}>
+                  {loanIsBorrowed ? '-' : '+'}{format(p.amount)}
+                </span>
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface SectionProps {
+  title: string
+  items: Loan[]
+  cardProps: Omit<LoanCardProps, 'loan'>
+}
+
+function Section({ title, items, cardProps }: SectionProps) {
+  if (items.length === 0) return null
+  return (
+    <div className="mb-4">
+      <p className="text-xs text-text-muted font-semibold uppercase tracking-wide mb-2 px-1">{title}</p>
+      <div className="space-y-3">
+        {items.map(loan => <LoanCard key={loan.uid} loan={loan} {...cardProps} />)}
+      </div>
+    </div>
+  )
+}
+
 export default function Loans() {
   const navigate = useNavigate()
   const { loans, totalOwed, totalOwing } = useLoans()
   const { format, symbol } = useCurrency()
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
-  // Tab: 'lent' = they owe me, 'borrowed' = I owe them
   const [activeTab, setActiveTab] = useState<'lent' | 'borrowed'>('lent')
 
   const [showAddModal, setShowAddModal] = useState(false)
@@ -61,7 +193,6 @@ export default function Loans() {
 
   const isBorrowed = activeTab === 'borrowed'
 
-  // — Add modal —
   function openAdd() {
     setAddForm(emptyAddForm())
     setAddErrors({})
@@ -96,7 +227,6 @@ export default function Loans() {
     closeAdd()
   }
 
-  // — Edit modal —
   function openEdit(loan: Loan) {
     setEditLoan(loan)
     setEditForm({ person: loan.person, amount: String(loan.totalAmount), date: loan.date, note: loan.note ?? '' })
@@ -125,7 +255,6 @@ export default function Loans() {
     closeEdit()
   }
 
-  // — Log Payment modal —
   function openPayment(loan: Loan) {
     setPaymentLoan(loan)
     setPaymentForm(emptyPaymentForm())
@@ -153,7 +282,6 @@ export default function Loans() {
     closePayment()
   }
 
-  // — Delete —
   function handleDelete(loan: Loan) {
     const verb = (loan.type ?? 'lent') === 'borrowed' ? 'Debt to' : 'Loan to'
     scheduleDelete(
@@ -176,126 +304,11 @@ export default function Loans() {
   const pendingLoans = visibleLoans.filter(l => l.status === 'pending')
   const returnedLoans = visibleLoans.filter(l => l.status === 'returned')
 
-  function LoanCard({ loan }: { loan: Loan }) {
-    const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0)
-    const balance = Math.max(0, loan.totalAmount - totalPaid)
-    const isReturned = loan.status === 'returned'
-    const isExpanded = loan.id !== undefined && expandedIds.has(loan.id)
-    const loanIsBorrowed = (loan.type ?? 'lent') === 'borrowed'
-
-    return (
-      <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-start gap-3" onClick={() => openEdit(loan)} style={{ cursor: 'pointer' }}>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold truncate">{loan.person}</span>
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                  isReturned
-                    ? 'text-income bg-income/10'
-                    : loanIsBorrowed
-                      ? 'text-expense bg-expense/10'
-                      : 'text-amber-500 bg-amber-500/10'
-                }`}>
-                  {isReturned ? (loanIsBorrowed ? 'Paid' : 'Returned') : 'Pending'}
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-                <span className="text-base font-bold">{format(loan.totalAmount)}</span>
-                <span className="text-xs text-text-muted">{loanIsBorrowed ? 'borrowed' : 'lent'}</span>
-                {totalPaid > 0 && (
-                  <>
-                    <span className="text-xs text-text-muted">·</span>
-                    <span className={`text-xs ${loanIsBorrowed ? 'text-expense' : 'text-income'}`}>
-                      {format(totalPaid)} {loanIsBorrowed ? 'paid' : 'back'}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {!isReturned && (
-                <p className={`text-sm font-semibold mt-0.5 ${loanIsBorrowed ? 'text-expense' : 'text-amber-500'}`}>
-                  {format(balance)} {loanIsBorrowed ? 'left to pay' : 'owed'}
-                </p>
-              )}
-
-              <p className="text-xs text-text-muted mt-0.5">
-                {loanIsBorrowed ? 'Borrowed' : 'Lent'} {fmtDate(loan.date)}
-              </p>
-              {loan.note && (
-                <p className="text-xs text-text-muted mt-0.5 truncate">{loan.note}</p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-0 shrink-0" onClick={e => e.stopPropagation()}>
-              {!isReturned && (
-                <button
-                  onClick={() => openPayment(loan)}
-                  className={`px-2.5 py-2 rounded-xl text-xs font-semibold min-h-[44px] flex items-center justify-center whitespace-nowrap ${
-                    loanIsBorrowed
-                      ? 'bg-expense/10 text-expense'
-                      : 'bg-income/10 text-income'
-                  }`}
-                >
-                  {loanIsBorrowed ? 'Log Payment' : 'Log Return'}
-                </button>
-              )}
-              <button
-                onClick={() => openEdit(loan)}
-                className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center text-text-muted active:text-primary"
-              >
-                <Pencil size={15} />
-              </button>
-              <DeleteButton onConfirm={() => handleDelete(loan)} size={14} />
-            </div>
-          </div>
-
-          {loan.payments.length > 0 && loan.id !== undefined && (
-            <button
-              onClick={e => { e.stopPropagation(); toggleExpanded(loan.id!) }}
-              className="flex items-center gap-1 mt-2 text-xs text-text-muted active:opacity-60"
-            >
-              {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {loan.payments.length} payment{loan.payments.length !== 1 ? 's' : ''}
-            </button>
-          )}
-        </div>
-
-        {isExpanded && loan.payments.length > 0 && (
-          <div className="border-t border-surface-light px-4 pb-3 pt-2 space-y-2">
-            {loan.payments
-              .slice()
-              .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              .map((p, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="text-xs text-text-muted">{fmtDate(p.date)}</span>
-                  <span className={`text-xs font-medium ${loanIsBorrowed ? 'text-expense' : 'text-income'}`}>
-                    {loanIsBorrowed ? '-' : '+'}{format(p.amount)}
-                  </span>
-                </div>
-              ))}
-          </div>
-        )}
-      </div>
-    )
+  const cardProps: Omit<LoanCardProps, 'loan'> = {
+    expandedIds, toggleExpanded, openEdit, openPayment, handleDelete, format,
   }
 
-  function Section({ title, items }: { title: string; items: Loan[] }) {
-    if (items.length === 0) return null
-    return (
-      <div className="mb-4">
-        <p className="text-xs text-text-muted font-semibold uppercase tracking-wide mb-2 px-1">{title}</p>
-        <div className="space-y-3">
-          {items.map(loan => <LoanCard key={loan.uid} loan={loan} />)}
-        </div>
-      </div>
-    )
-  }
-
-  const emptyLabel = isBorrowed
-    ? 'No debts tracked yet'
-    : 'No loans tracked yet'
+  const emptyLabel = isBorrowed ? 'No debts tracked yet' : 'No loans tracked yet'
   const addBtnLabel = isBorrowed ? 'Track your first debt' : 'Track your first loan'
 
   return (
@@ -373,8 +386,8 @@ export default function Loans() {
         </div>
       ) : (
         <>
-          <Section title="Pending" items={pendingLoans} />
-          <Section title={isBorrowed ? 'Paid' : 'Returned'} items={returnedLoans} />
+          <Section title="Pending" items={pendingLoans} cardProps={cardProps} />
+          <Section title={isBorrowed ? 'Paid' : 'Returned'} items={returnedLoans} cardProps={cardProps} />
         </>
       )}
 

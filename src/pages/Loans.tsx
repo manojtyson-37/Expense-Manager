@@ -346,7 +346,7 @@ export default function Loans() {
               : 'text-text-muted'
           }`}
         >
-          They Owe Me
+          Lent
           {totalOwed !== undefined && totalOwed > 0 && (
             <span className="ml-1.5 text-[10px] font-semibold text-amber-500">
               {format(totalOwed)}
@@ -361,7 +361,7 @@ export default function Loans() {
               : 'text-text-muted'
           }`}
         >
-          I Owe
+          Borrowed
           {totalOwing !== undefined && totalOwing > 0 && (
             <span className="ml-1.5 text-[10px] font-semibold text-expense">
               {format(totalOwing)}

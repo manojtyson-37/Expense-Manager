@@ -232,6 +232,7 @@ export async function syncFromCloud(userId: string) {
         await db.loans.clear()
         await db.loans.bulkAdd(mergedLoans.map(l => ({
           uid: l.uid,
+          type: (l.type as Loan['type']) ?? 'lent',
           person: l.person,
           totalAmount: Number(l.total_amount),
           date: l.date,
@@ -404,7 +405,7 @@ export async function pushLoan(loan: Omit<Loan, 'id'>) {
   const userId = await getUserId()
   if (!userId) return
   const { error } = await supabase.from('loans').upsert({
-    user_id: userId, uid: loan.uid, person: loan.person, total_amount: loan.totalAmount,
+    user_id: userId, uid: loan.uid, type: loan.type ?? 'lent', person: loan.person, total_amount: loan.totalAmount,
     date: loan.date, status: loan.status, payments: loan.payments, note: loan.note || null,
     created_at: new Date(loan.createdAt).toISOString(),
   }, { onConflict: 'user_id,uid' })

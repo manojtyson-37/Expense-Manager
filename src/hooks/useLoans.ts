@@ -10,19 +10,35 @@ export function useLoans() {
   const totalOwed = useLiveQuery(async () => {
     const all = await db.loans.toArray()
     return all.reduce((sum, loan) => {
+      if ((loan.type ?? 'lent') !== 'lent') return sum
       const paid = loan.payments.reduce((p, r) => p + r.amount, 0)
-      const owed = Math.max(0, loan.totalAmount - paid)
-      return sum + owed
+      return sum + Math.max(0, loan.totalAmount - paid)
     }, 0)
   })
 
-  return { loans, totalOwed }
+  const totalOwing = useLiveQuery(async () => {
+    const all = await db.loans.toArray()
+    return all.reduce((sum, loan) => {
+      if ((loan.type ?? 'lent') !== 'borrowed') return sum
+      const paid = loan.payments.reduce((p, r) => p + r.amount, 0)
+      return sum + Math.max(0, loan.totalAmount - paid)
+    }, 0)
+  })
+
+  return { loans, totalOwed, totalOwing }
 }
 
-export async function addLoan(person: string, amount: number, date: string, note?: string) {
+export async function addLoan(
+  person: string,
+  amount: number,
+  date: string,
+  note?: string,
+  type: 'lent' | 'borrowed' = 'lent',
+) {
   const uid = newUid()
   const loan: Loan = {
     uid,
+    type,
     person,
     totalAmount: amount,
     date,
@@ -53,7 +69,6 @@ export async function updateLoan(id: number, person: string, amount: number, dat
   const loan = await db.loans.get(id)
   if (!loan) return
   const updated = { ...loan, person, totalAmount: amount, date, note, createdAt: Date.now() }
-  // Recompute status in case amount changed
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0)
   updated.status = totalPaid >= amount ? 'returned' : 'pending'
   await db.loans.update(id, updated)

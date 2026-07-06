@@ -35,6 +35,7 @@ export interface PaymentRecord {
 export interface Loan {
   id?: number
   uid: string // stable cross-device id (local + cloud)
+  type: 'lent' | 'borrowed' // lent = they owe me; borrowed = I owe them
   person: string
   totalAmount: number
   date: string // YYYY-MM-DD
@@ -122,6 +123,20 @@ db.version(5).stores({
   loans: '++id, uid, person, status, date, createdAt',
 }).upgrade(async () => {
   // No backfill needed — new tables
+})
+
+// v6: add type field to loans ('lent' | 'borrowed'). Backfill existing as 'lent'.
+db.version(6).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+  subscriptions: '++id, uid, status, startDate, createdAt',
+  loans: '++id, uid, type, person, status, date, createdAt',
+}).upgrade(async tx => {
+  await tx.table('loans').toCollection().modify((loan: Loan) => {
+    if (!loan.type) loan.type = 'lent'
+  })
 })
 
 export async function seedAccounts() {

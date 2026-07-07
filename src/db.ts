@@ -75,6 +75,16 @@ export interface Budget {
   month: string // YYYY-MM
 }
 
+export interface OutboxEntry {
+  id?: number
+  op: 'upsert' | 'delete'
+  table: string
+  uid: string
+  userId: string
+  payload?: Record<string, unknown>
+  createdAt: number
+}
+
 const db = new Dexie('ExpenseTracker') as Dexie & {
   transactions: EntityTable<Transaction, 'id'>
   categories: EntityTable<Category, 'id'>
@@ -82,6 +92,7 @@ const db = new Dexie('ExpenseTracker') as Dexie & {
   budgets: EntityTable<Budget, 'id'>
   subscriptions: EntityTable<Subscription, 'id'>
   loans: EntityTable<Loan, 'id'>
+  outbox: EntityTable<OutboxEntry, 'id'>
 }
 
 db.version(1).stores({
@@ -138,6 +149,17 @@ db.version(6).stores({
   await tx.table('loans').toCollection().modify((loan: Loan) => {
     if (!loan.type) loan.type = 'lent'
   })
+})
+
+// v7: add outbox table for offline-first mutations.
+db.version(7).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+  subscriptions: '++id, uid, status, startDate, createdAt',
+  loans: '++id, uid, type, person, status, date, createdAt',
+  outbox: '++id, table, uid, createdAt',
 })
 
 export async function seedAccounts() {

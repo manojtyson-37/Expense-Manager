@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type PaymentRecord, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { queueOp, flushOutbox } from './outbox'
 
 async function getUserId(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
@@ -43,6 +44,7 @@ function txnKey(t: { type: string; amount: number; category: string; account?: s
 }
 
 export async function syncFromCloud(userId: string) {
+  await flushOutbox().catch(err => console.error('flushOutbox error, continuing sync:', err))
   try {
     const { data: cloudTxns, error: txnErr } = await supabase
       .from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false })
@@ -250,18 +252,28 @@ export async function syncFromCloud(userId: string) {
 }
 
 export async function pushTransaction(userId: string, t: Omit<Transaction, 'id' | 'createdAt'>) {
-  // upsert on (user_id, uid): pushing the same row twice (e.g. add + a racing
-  // sync re-push) updates in place instead of creating a duplicate row.
-  const { error } = await supabase.from('transactions').upsert({
+  const payload = {
     user_id: userId, uid: t.uid, type: t.type, amount: t.amount, category: t.category,
     account: t.account || '', note: t.note, date: t.date,
-  }, { onConflict: 'user_id,uid' })
+  }
+  if (!navigator.onLine) {
+    await queueOp({ op: 'upsert', table: 'transactions', uid: t.uid, userId, payload })
+    return
+  }
+  const { error } = await supabase.from('transactions').upsert(payload, { onConflict: 'user_id,uid' })
   if (error) console.error('Push transaction failed:', error)
 }
 
 // Edit: update the cloud row with this uid in place; insert if it doesn't
 // exist yet (created offline or before the uid migration).
 export async function upsertCloudTransaction(userId: string, t: Transaction) {
+  if (!navigator.onLine) {
+    await pushTransaction(userId, {
+      uid: t.uid, type: t.type, amount: t.amount, category: t.category,
+      account: t.account, note: t.note, date: t.date,
+    })
+    return
+  }
   const { data, error } = await supabase.from('transactions')
     .update({
       type: t.type, amount: t.amount, category: t.category,
@@ -279,6 +291,10 @@ export async function upsertCloudTransaction(userId: string, t: Transaction) {
 }
 
 export async function deleteCloudTransaction(userId: string, t: Transaction) {
+  if (!navigator.onLine) {
+    if (t.uid) await queueOp({ op: 'delete', table: 'transactions', uid: t.uid, userId })
+    return
+  }
   if (t.uid) {
     const { error } = await supabase.from('transactions')
       .delete().eq('user_id', userId).eq('uid', t.uid)
@@ -388,16 +404,25 @@ export async function clearAllData(userId: string) {
 }
 
 export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {
-  const { error } = await supabase.from('subscriptions').upsert({
+  const payload: Record<string, unknown> = {
     user_id: userId, uid: s.uid, name: s.name, amount: s.amount, frequency: s.frequency,
     start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null,
     account: s.account || null, note: s.note || null,
     created_at: new Date(s.createdAt).toISOString(),
-  }, { onConflict: 'user_id,uid' })
+  }
+  if (!navigator.onLine) {
+    await queueOp({ op: 'upsert', table: 'subscriptions', uid: s.uid, userId, payload })
+    return
+  }
+  const { error } = await supabase.from('subscriptions').upsert(payload, { onConflict: 'user_id,uid' })
   if (error) console.error('Push subscription failed:', error)
 }
 
 export async function deleteCloudSubscription(userId: string, uid: string) {
+  if (!navigator.onLine) {
+    await queueOp({ op: 'delete', table: 'subscriptions', uid, userId })
+    return
+  }
   const { error } = await supabase.from('subscriptions')
     .delete().eq('user_id', userId).eq('uid', uid)
   if (error) console.error('Delete cloud subscription failed:', error)
@@ -406,17 +431,26 @@ export async function deleteCloudSubscription(userId: string, uid: string) {
 export async function pushLoan(loan: Omit<Loan, 'id'>) {
   const userId = await getUserId()
   if (!userId) return
-  const { error } = await supabase.from('loans').upsert({
+  const payload: Record<string, unknown> = {
     user_id: userId, uid: loan.uid, type: loan.type ?? 'lent', person: loan.person, total_amount: loan.totalAmount,
     date: loan.date, status: loan.status, payments: loan.payments, note: loan.note || null,
     created_at: new Date(loan.createdAt).toISOString(),
-  }, { onConflict: 'user_id,uid' })
+  }
+  if (!navigator.onLine) {
+    await queueOp({ op: 'upsert', table: 'loans', uid: loan.uid, userId, payload })
+    return
+  }
+  const { error } = await supabase.from('loans').upsert(payload, { onConflict: 'user_id,uid' })
   if (error) console.error('Push loan failed:', error)
 }
 
 export async function deleteCloudLoan(uid: string) {
   const userId = await getUserId()
   if (!userId) return
+  if (!navigator.onLine) {
+    await queueOp({ op: 'delete', table: 'loans', uid, userId })
+    return
+  }
   const { error } = await supabase.from('loans')
     .delete().eq('user_id', userId).eq('uid', uid)
   if (error) console.error('Delete cloud loan failed:', error)

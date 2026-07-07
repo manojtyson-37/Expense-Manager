@@ -16,6 +16,7 @@ import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
 import Onboarding from './pages/Onboarding'
 import NavBar from './components/NavBar'
+import OfflineBadge from './components/OfflineBadge'
 import { useAccounts } from './hooks/useAccounts'
 import { Cloud } from 'lucide-react'
 
@@ -65,6 +66,11 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [sync])
 
+  useEffect(() => {
+    window.addEventListener('online', sync)
+    return () => window.removeEventListener('online', sync)
+  }, [sync])
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-svh">
@@ -87,6 +93,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col min-h-svh pb-20">
+      <OfflineBadge />
       {isSyncing && (
         <div className="flex items-center justify-center gap-1.5 py-1.5 bg-primary/10 text-primary text-xs font-medium">
           <Cloud size={12} className="animate-pulse" />

@@ -1,5 +1,5 @@
 import { db, newUid, type Transaction, type Subscription } from '../db'
-import { getUserId, pushTransaction } from './sync'
+import { getUserId, pushTransaction, deleteCloudTransaction } from './sync'
 
 // Per-user keying prevents cross-user contamination on shared devices
 const storageKey = (userId: string, subUid: string) => `subpost:${userId}:${subUid}`
@@ -176,5 +176,68 @@ export async function processSubscriptions(): Promise<number> {
     return created
   } finally {
     processing = false
+  }
+}
+
+const DEDUP_KEY = (userId: string) => `subdedup:${userId}:v1`
+
+/**
+ * One-time cleanup for duplicate subscription transactions caused by the
+ * localStorage key format migration (v1: unscoped → v2: userId-scoped).
+ *
+ * Groups expense transactions by (note, date, amount). For any group with
+ * 2+ entries where the note matches an active subscription name, keeps the
+ * one with the highest createdAt and deletes the rest from Dexie + Supabase.
+ *
+ * Safe to call repeatedly — runs once per user then marks done in localStorage.
+ */
+export async function dedupeSubscriptionTransactions(): Promise<number> {
+  const userId = await getUserId()
+  if (!userId) return 0
+
+  const doneKey = DEDUP_KEY(userId)
+  if (localStorage.getItem(doneKey)) return 0
+
+  try {
+    const subs = await db.subscriptions.filter(s => s.status === 'active').toArray()
+    if (subs.length === 0) {
+      localStorage.setItem(doneKey, '1')
+      return 0
+    }
+
+    const subNames = new Set(subs.map(s => s.name))
+    const allTxns = await db.transactions.toArray()
+
+    // Group by (note, date, amount) — only expense txns whose note is a sub name
+    const groups = new Map<string, Transaction[]>()
+    for (const t of allTxns) {
+      if (t.type !== 'expense' || !subNames.has(t.note)) continue
+      const key = `${t.note}|${t.date}|${t.amount}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(t)
+    }
+
+    let removed = 0
+    for (const group of groups.values()) {
+      if (group.length < 2) continue
+      // Keep the one with the highest createdAt (most recent write)
+      group.sort((a, b) => b.createdAt - a.createdAt)
+      const toDelete = group.slice(1)
+      for (const t of toDelete) {
+        try {
+          await db.transactions.delete(t.id!)
+          await deleteCloudTransaction(userId, t)
+          removed++
+        } catch (err) {
+          console.error('dedupeSubscriptionTransactions: failed to delete', t.uid, err)
+        }
+      }
+    }
+
+    localStorage.setItem(doneKey, '1')
+    return removed
+  } catch (err) {
+    console.error('dedupeSubscriptionTransactions failed:', err)
+    return 0
   }
 }

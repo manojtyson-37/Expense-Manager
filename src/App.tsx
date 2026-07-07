@@ -2,7 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
-import { processSubscriptions } from './lib/subscriptionProcessor'
+import { processSubscriptions, dedupeSubscriptionTransactions } from './lib/subscriptionProcessor'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import AddTransaction from './pages/AddTransaction'
@@ -40,6 +40,7 @@ export default function App() {
     syncingRef.current = true
     setIsSyncing(true)
     syncFromCloud(user.id)
+      .then(() => dedupeSubscriptionTransactions())
       .then(() => processSubscriptions())
       .then(count => {
         if (count > 0) {

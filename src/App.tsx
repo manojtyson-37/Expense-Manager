@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
+import { processSubscriptions } from './lib/subscriptionProcessor'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import AddTransaction from './pages/AddTransaction'
@@ -24,6 +25,7 @@ export default function App() {
   const lastSyncRef = useRef(0)
   const syncingRef = useRef(false)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [subToast, setSubToast] = useState<string | null>(null)
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
@@ -38,6 +40,13 @@ export default function App() {
     syncingRef.current = true
     setIsSyncing(true)
     syncFromCloud(user.id)
+      .then(() => processSubscriptions())
+      .then(count => {
+        if (count > 0) {
+          setSubToast(`${count} subscription transaction${count === 1 ? '' : 's'} added`)
+          setTimeout(() => setSubToast(null), 4000)
+        }
+      })
       .catch(console.error)
       .finally(() => {
         syncingRef.current = false
@@ -81,6 +90,11 @@ export default function App() {
         <div className="flex items-center justify-center gap-1.5 py-1.5 bg-primary/10 text-primary text-xs font-medium">
           <Cloud size={12} className="animate-pulse" />
           Syncing...
+        </div>
+      )}
+      {subToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 bg-surface border border-border rounded-2xl shadow-lg text-sm font-medium text-text whitespace-nowrap">
+          {subToast}
         </div>
       )}
       <Routes>

@@ -1,14 +1,15 @@
 import { db, newUid, type Transaction, type Subscription } from '../db'
 import { getUserId, pushTransaction } from './sync'
 
-const storageKey = (uid: string) => `subpost:${uid}`
+// Per-user keying prevents cross-user contamination on shared devices
+const storageKey = (userId: string, subUid: string) => `subpost:${userId}:${subUid}`
 
-function getLastPosted(uid: string): string | null {
-  return localStorage.getItem(storageKey(uid))
+function getLastPosted(userId: string, subUid: string): string | null {
+  return localStorage.getItem(storageKey(userId, subUid))
 }
 
-function setLastPosted(uid: string, date: string): void {
-  localStorage.setItem(storageKey(uid), date)
+function setLastPosted(userId: string, subUid: string, date: string): void {
+  localStorage.setItem(storageKey(userId, subUid), date)
 }
 
 // Returns local date as YYYY-MM-DD — avoids UTC offset shifting the date
@@ -93,62 +94,87 @@ function computeDueDates(
   return upcoming
 }
 
+// Guard against concurrent runs (e.g. two tabs or rapid visibility events)
+let processing = false
+
 /**
  * Called on every app open (after sync).
  * Returns the number of transactions auto-created.
  */
 export async function processSubscriptions(): Promise<number> {
-  const today = localToday()
+  if (processing) return 0
+  processing = true
 
-  // Only active subs that have started (and not past their endDate)
-  const activeSubs = await db.subscriptions
-    .filter(s => s.status === 'active' && s.startDate <= today && (!s.endDate || s.endDate >= today))
-    .toArray()
+  try {
+    const today = localToday()
+    const userId = await getUserId()
+    if (!userId) return 0
 
-  if (activeSubs.length === 0) return 0
+    // Only active subs that have started (and not past their endDate)
+    const activeSubs = await db.subscriptions
+      .filter(s => s.status === 'active' && s.startDate <= today && (!s.endDate || s.endDate >= today))
+      .toArray()
 
-  const accounts = await db.accounts.toArray()
-  if (accounts.length === 0) return 0
-  const defaultAccount = accounts[0].name
+    if (activeSubs.length === 0) return 0
 
-  const userId = await getUserId()
-  let created = 0
+    const accounts = await db.accounts.toArray()
+    if (accounts.length === 0) return 0
+    // Prefer "Cash" (the seeded default); fall back to first account
+    const defaultAccount = (accounts.find(a => a.name === 'Cash') ?? accounts[0]).name
 
-  for (const sub of activeSubs) {
-    const lastPosted = getLastPosted(sub.uid)
-    const dueDates = computeDueDates(sub.startDate, sub.endDate, sub.frequency, today, lastPosted)
+    let created = 0
 
-    if (dueDates.length === 0) continue
+    for (const sub of activeSubs) {
+      const lastPosted = getLastPosted(userId, sub.uid)
+      const dueDates = computeDueDates(sub.startDate, sub.endDate, sub.frequency, today, lastPosted)
 
-    for (const date of dueDates) {
-      const uid = newUid()
-      const txn: Transaction = {
-        uid,
-        type: 'expense',
-        amount: sub.amount,
-        category: sub.category || 'Bills',
-        account: defaultAccount,
-        note: sub.name,
-        date,
-        createdAt: Date.now(),
-      }
-      await db.transactions.add(txn)
-      if (userId) {
-        await pushTransaction(userId, {
+      if (dueDates.length === 0) continue
+
+      let allSucceeded = true
+      let lastSuccessDate = lastPosted
+
+      for (const date of dueDates) {
+        const uid = newUid()
+        const txn: Transaction = {
           uid,
-          type: txn.type,
-          amount: txn.amount,
-          category: txn.category,
-          account: txn.account,
-          note: txn.note,
-          date: txn.date,
-        })
+          type: 'expense',
+          amount: sub.amount,
+          category: sub.category || 'Bills',
+          account: defaultAccount,
+          note: sub.name,
+          date,
+          createdAt: Date.now(),
+        }
+        try {
+          await db.transactions.add(txn)
+          await pushTransaction(userId, {
+            uid,
+            type: txn.type,
+            amount: txn.amount,
+            category: txn.category,
+            account: txn.account,
+            note: txn.note,
+            date: txn.date,
+          })
+          lastSuccessDate = date
+          created++
+        } catch (err) {
+          console.error('subscriptionProcessor: failed to post transaction for', sub.name, date, err)
+          allSucceeded = false
+          break // stop this sub's loop; don't skip ahead
+        }
       }
-      created++
+
+      // Only advance the marker to the last successfully-written date
+      if (lastSuccessDate && lastSuccessDate !== lastPosted) {
+        setLastPosted(userId, sub.uid, lastSuccessDate)
+      }
+
+      if (!allSucceeded) continue
     }
 
-    setLastPosted(sub.uid, dueDates[dueDates.length - 1])
+    return created
+  } finally {
+    processing = false
   }
-
-  return created
 }

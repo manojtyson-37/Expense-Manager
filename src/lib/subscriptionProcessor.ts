@@ -120,7 +120,7 @@ export async function processSubscriptions(): Promise<number> {
     const accounts = await db.accounts.toArray()
     if (accounts.length === 0) return 0
     // Prefer "Cash" (the seeded default); fall back to first account
-    const defaultAccount = (accounts.find(a => a.name === 'Cash') ?? accounts[0]).name
+    const fallbackAccount = (accounts.find(a => a.name === 'Cash') ?? accounts[0]).name
 
     let created = 0
 
@@ -140,7 +140,7 @@ export async function processSubscriptions(): Promise<number> {
           type: 'expense',
           amount: sub.amount,
           category: sub.category || 'Bills',
-          account: defaultAccount,
+          account: sub.account || fallbackAccount,
           note: sub.name,
           date,
           createdAt: Date.now(),
@@ -212,7 +212,7 @@ export async function dedupeSubscriptionTransactions(): Promise<number> {
     const groups = new Map<string, Transaction[]>()
     for (const t of allTxns) {
       if (t.type !== 'expense' || !subNames.has(t.note)) continue
-      const key = `${t.note}|${t.date}|${t.amount}`
+      const key = `${t.note}|${t.date}|${t.amount}|${t.account || ''}`
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(t)
     }

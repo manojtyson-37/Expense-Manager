@@ -22,6 +22,7 @@ export interface Subscription {
   endDate?: string // YYYY-MM-DD
   status: 'active' | 'paused' | 'cancelled'
   category?: string
+  account?: string
   note?: string
   createdAt: number
 }

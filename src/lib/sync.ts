@@ -209,6 +209,7 @@ export async function syncFromCloud(userId: string) {
           endDate: s.end_date || undefined,
           status: s.status as Subscription['status'],
           category: s.category || undefined,
+          account: s.account || undefined,
           note: s.note || undefined,
           createdAt: s.created_at ? new Date(s.created_at).getTime() : Date.now(),
         })) as Subscription[])
@@ -389,7 +390,8 @@ export async function clearAllData(userId: string) {
 export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {
   const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId, uid: s.uid, name: s.name, amount: s.amount, frequency: s.frequency,
-    start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null, note: s.note || null,
+    start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null,
+    account: s.account || null, note: s.note || null,
     created_at: new Date(s.createdAt).toISOString(),
   }, { onConflict: 'user_id,uid' })
   if (error) console.error('Push subscription failed:', error)

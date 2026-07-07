@@ -3,6 +3,7 @@ import { ArrowLeft, Plus, RefreshCw, PauseCircle, PlayCircle, XCircle } from 'lu
 import { useNavigate } from 'react-router-dom'
 import { useSubscriptions, addSubscription, editSubscription, toggleSubscriptionStatus, cancelSubscription, deleteSubscription } from '../hooks/useSubscriptions'
 import { useCategories } from '../hooks/useCategories'
+import { useAccounts } from '../hooks/useAccounts'
 import { useCurrency } from '../lib/CurrencyContext'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
@@ -44,22 +45,142 @@ interface FormState {
   frequency: Frequency
   startDate: string
   category: string
+  account: string
   note: string
+}
+
+function localToday(): string {
+  const d = new Date()
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
 }
 
 const emptyForm = (): FormState => ({
   name: '',
   amount: '',
   frequency: 'monthly',
-  startDate: new Date().toISOString().slice(0, 10),
+  startDate: localToday(),
   category: '',
+  account: '',
   note: '',
 })
+
+interface SubCardProps {
+  sub: Subscription
+  fmt: (n: number) => string
+  onToggle: (uid: string) => void
+  onEdit: (sub: Subscription) => void
+  onDelete: (sub: Subscription) => void
+}
+
+function SubCard({ sub, fmt, onToggle, onEdit, onDelete }: SubCardProps) {
+  return (
+    <div className="bg-surface rounded-2xl p-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold truncate">{sub.name}</span>
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[sub.status]}`}>
+              {STATUS_LABELS[sub.status]}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span className="text-base font-bold">{fmt(sub.amount)}</span>
+            <span className="text-xs text-text-muted">/ {FREQUENCY_LABELS[sub.frequency]}</span>
+            {sub.category && (
+              <span className="text-xs text-text-muted">· {sub.category}</span>
+            )}
+            {sub.account && (
+              <span className="text-xs text-text-muted">· {sub.account}</span>
+            )}
+          </div>
+          {sub.note && (
+            <p className="text-xs text-text-muted mt-0.5 truncate">{sub.note}</p>
+          )}
+          <p className="text-xs text-text-muted mt-0.5">
+            Since {new Date(sub.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {sub.status === 'active' && (
+            <button
+              onClick={() => onToggle(sub.uid)}
+              className="p-2 text-amber-500 active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Pause"
+            >
+              <PauseCircle size={18} />
+            </button>
+          )}
+          {sub.status === 'paused' && (
+            <>
+              <button
+                onClick={() => onToggle(sub.uid)}
+                className="p-2 text-income active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Resume"
+              >
+                <PlayCircle size={18} />
+              </button>
+              <button
+                onClick={() => cancelSubscription(sub.uid)}
+                className="p-2 text-text-muted active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Cancel"
+              >
+                <XCircle size={18} />
+              </button>
+            </>
+          )}
+          {sub.status === 'cancelled' && (
+            <button
+              onClick={() => onToggle(sub.uid)}
+              className="p-2 text-income active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              title="Reactivate"
+            >
+              <PlayCircle size={18} />
+            </button>
+          )}
+
+          <button
+            onClick={() => onEdit(sub)}
+            className="p-2 text-text-muted active:text-primary min-h-[44px] min-w-[44px] flex items-center justify-center text-sm font-medium"
+          >
+            Edit
+          </button>
+
+          <DeleteButton onConfirm={() => onDelete(sub)} size={14} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface SectionProps {
+  title: string
+  items: Subscription[]
+  fmt: (n: number) => string
+  onToggle: (uid: string) => void
+  onEdit: (sub: Subscription) => void
+  onDelete: (sub: Subscription) => void
+}
+
+function Section({ title, items, fmt, onToggle, onEdit, onDelete }: SectionProps) {
+  if (items.length === 0) return null
+  return (
+    <div className="mb-4">
+      <p className="text-xs text-text-muted font-semibold uppercase tracking-wide mb-2 px-1">{title}</p>
+      <div className="space-y-3">
+        {items.map(sub => (
+          <SubCard key={sub.uid} sub={sub} fmt={fmt} onToggle={onToggle} onEdit={onEdit} onDelete={onDelete} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function Subscriptions() {
   const navigate = useNavigate()
   const { subscriptions, totalRecurring } = useSubscriptions()
   const categories = useCategories()
+  const accounts = useAccounts()
   const { format, symbol } = useCurrency()
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
 
@@ -82,6 +203,7 @@ export default function Subscriptions() {
       frequency: sub.frequency,
       startDate: sub.startDate,
       category: sub.category ?? '',
+      account: sub.account ?? '',
       note: sub.note ?? '',
     })
     setErrors({})
@@ -116,6 +238,7 @@ export default function Subscriptions() {
         frequency: form.frequency,
         startDate: form.startDate,
         category: form.category || undefined,
+        account: form.account || undefined,
         note: form.note.trim() || undefined,
       })
     } else {
@@ -125,6 +248,7 @@ export default function Subscriptions() {
         form.frequency,
         form.startDate,
         form.category || undefined,
+        form.account || undefined,
         form.note.trim() || undefined,
       )
     }
@@ -146,99 +270,6 @@ export default function Subscriptions() {
   const active = subscriptions?.filter(s => s.status === 'active') ?? []
   const paused = subscriptions?.filter(s => s.status === 'paused') ?? []
   const cancelled = subscriptions?.filter(s => s.status === 'cancelled') ?? []
-
-  function SubCard({ sub }: { sub: Subscription }) {
-    return (
-      <div className="bg-surface rounded-2xl p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold truncate">{sub.name}</span>
-              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[sub.status]}`}>
-                {STATUS_LABELS[sub.status]}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-base font-bold">{format(sub.amount)}</span>
-              <span className="text-xs text-text-muted">/ {FREQUENCY_LABELS[sub.frequency]}</span>
-              {sub.category && (
-                <span className="text-xs text-text-muted">· {sub.category}</span>
-              )}
-            </div>
-            {sub.note && (
-              <p className="text-xs text-text-muted mt-0.5 truncate">{sub.note}</p>
-            )}
-            <p className="text-xs text-text-muted mt-0.5">
-              Since {new Date(sub.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Toggle status */}
-            {sub.status === 'active' && (
-              <button
-                onClick={() => handleToggle(sub.uid)}
-                className="p-2 text-amber-500 active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                title="Pause"
-              >
-                <PauseCircle size={18} />
-              </button>
-            )}
-            {sub.status === 'paused' && (
-              <>
-                <button
-                  onClick={() => handleToggle(sub.uid)}
-                  className="p-2 text-income active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  title="Resume"
-                >
-                  <PlayCircle size={18} />
-                </button>
-                <button
-                  onClick={() => cancelSubscription(sub.uid)}
-                  className="p-2 text-text-muted active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  title="Cancel"
-                >
-                  <XCircle size={18} />
-                </button>
-              </>
-            )}
-            {sub.status === 'cancelled' && (
-              <button
-                onClick={() => handleToggle(sub.uid)}
-                className="p-2 text-income active:opacity-60 min-h-[44px] min-w-[44px] flex items-center justify-center"
-                title="Reactivate"
-              >
-                <PlayCircle size={18} />
-              </button>
-            )}
-
-            {/* Edit */}
-            <button
-              onClick={() => openEdit(sub)}
-              className="p-2 text-text-muted active:text-primary min-h-[44px] min-w-[44px] flex items-center justify-center text-sm font-medium"
-            >
-              Edit
-            </button>
-
-            {/* Delete */}
-            <DeleteButton onConfirm={() => handleDelete(sub)} size={14} />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function Section({ title, items }: { title: string; items: Subscription[] }) {
-    if (items.length === 0) return null
-    return (
-      <div className="mb-4">
-        <p className="text-xs text-text-muted font-semibold uppercase tracking-wide mb-2 px-1">{title}</p>
-        <div className="space-y-3">
-          {items.map(sub => <SubCard key={sub.uid} sub={sub} />)}
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="flex-1 px-4 pt-4">
@@ -278,9 +309,9 @@ export default function Subscriptions() {
         </div>
       ) : (
         <>
-          <Section title="Active" items={active} />
-          <Section title="Paused" items={paused} />
-          <Section title="Cancelled" items={cancelled} />
+          <Section title="Active" items={active} fmt={format} onToggle={handleToggle} onEdit={openEdit} onDelete={handleDelete} />
+          <Section title="Paused" items={paused} fmt={format} onToggle={handleToggle} onEdit={openEdit} onDelete={handleDelete} />
+          <Section title="Cancelled" items={cancelled} fmt={format} onToggle={handleToggle} onEdit={openEdit} onDelete={handleDelete} />
         </>
       )}
 
@@ -381,6 +412,23 @@ export default function Subscriptions() {
                       <option value="">None</option>
                       {categories.map(cat => (
                         <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Account */}
+                {accounts && accounts.length > 0 && (
+                  <div>
+                    <label className="text-xs text-text-muted font-medium block mb-1.5">Debit Account (optional)</label>
+                    <select
+                      value={form.account}
+                      onChange={e => setForm(f => ({ ...f, account: e.target.value }))}
+                      className="w-full text-sm"
+                    >
+                      <option value="">Auto (Cash)</option>
+                      {accounts.map(acc => (
+                        <option key={acc.id} value={acc.name}>{acc.name}</option>
                       ))}
                     </select>
                   </div>

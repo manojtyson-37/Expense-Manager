@@ -24,7 +24,7 @@ export function useSubscriptions() {
   return { subscriptions, totalRecurring }
 }
 
-export async function addSubscription(name: string, amount: number, frequency: Subscription['frequency'], startDate: string, category?: string, note?: string) {
+export async function addSubscription(name: string, amount: number, frequency: Subscription['frequency'], startDate: string, category?: string, account?: string, note?: string) {
   const uid = newUid()
   const sub: Subscription = {
     uid,
@@ -34,6 +34,7 @@ export async function addSubscription(name: string, amount: number, frequency: S
     startDate,
     status: 'active',
     category,
+    account,
     note,
     createdAt: Date.now(),
   }
@@ -47,7 +48,9 @@ export async function addSubscription(name: string, amount: number, frequency: S
 export async function editSubscription(uid: string, updates: Partial<Subscription>) {
   const sub = await db.subscriptions.where('uid').equals(uid).first()
   if (!sub) return
-  await db.subscriptions.update(sub.id!, updates)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { id: _id, ...safeUpdates } = updates
+  await db.subscriptions.update(sub.id!, safeUpdates)
   const updated = await db.subscriptions.get(sub.id!)
   const userId = await getUserId()
   if (userId && updated) {

@@ -48,7 +48,7 @@ function txnKey(t: { type: string; amount: number; category: string; account?: s
 }
 
 export async function syncFromCloud(userId: string) {
-  await flushOutbox().catch(err => console.error('flushOutbox error:', err))
+  await flushOutbox(userId).catch(err => console.error('flushOutbox error:', err))
   // If entries are still queued, the flush didn't fully drain (offline event
   // fired before connectivity was actually usable, or a push/delete failed).
   // Pulling and merging now would overwrite the not-yet-synced local state

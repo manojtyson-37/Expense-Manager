@@ -83,6 +83,7 @@ export interface OutboxEntry {
   userId: string
   payload?: Record<string, unknown>
   createdAt: number
+  attempts?: number
 }
 
 const db = new Dexie('ExpenseTracker') as Dexie & {

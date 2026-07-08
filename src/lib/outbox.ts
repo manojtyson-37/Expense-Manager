@@ -13,9 +13,39 @@ export async function queueOp(entry: Omit<OutboxEntry, 'id' | 'createdAt'>): Pro
   await db.outbox.add({ ...entry, createdAt: Date.now() })
 }
 
-export async function flushOutbox(): Promise<void> {
+// A permanently-failing entry (bad payload, RLS reject, revoked session)
+// must not block every other queued mutation, or this account's sync stops
+// working forever with no recovery. Give an entry this many attempts across
+// separate flush calls before dropping it and moving on.
+const MAX_ATTEMPTS = 5
+
+// Local, best-effort audit trail for mutations we gave up on — bounded so it
+// can't grow unbounded, keyed per-device (not synced). This is the only
+// record of a permanently-dropped mutation once it's gone from the outbox.
+const FAILED_LOG_KEY = 'expense-tracker-outbox-failures'
+const FAILED_LOG_MAX = 50
+
+function logDroppedEntry(entry: OutboxEntry, attempts: number, err: unknown) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(FAILED_LOG_KEY) || '[]')
+    existing.push({
+      table: entry.table, op: entry.op, uid: entry.uid, userId: entry.userId,
+      attempts, droppedAt: Date.now(), error: err instanceof Error ? err.message : String(err),
+    })
+    localStorage.setItem(FAILED_LOG_KEY, JSON.stringify(existing.slice(-FAILED_LOG_MAX)))
+  } catch {
+    // localStorage full or unavailable — the console.error is still the fallback trail
+  }
+}
+
+// Only this account's queued mutations are ever retried or dropped here.
+// On a shared device, a different (currently signed-out) account's stuck
+// entries are left completely untouched — they'd otherwise fail Supabase RLS
+// under the wrong session on every attempt and get permanently deleted after
+// MAX_ATTEMPTS, silently losing that other account's data.
+export async function flushOutbox(userId: string): Promise<void> {
   if (!navigator.onLine) return
-  const pending = await db.outbox.orderBy('createdAt').toArray()
+  const pending = (await db.outbox.orderBy('createdAt').toArray()).filter(e => e.userId === userId)
   if (pending.length === 0) return
 
   for (const entry of pending) {
@@ -38,7 +68,18 @@ export async function flushOutbox(): Promise<void> {
         break
       }
     } catch (err) {
-      console.error('flushOutbox: failed', entry.table, entry.op, entry.uid, err)
+      const attempts = (entry.attempts ?? 0) + 1
+      if (attempts >= MAX_ATTEMPTS) {
+        console.error(
+          `flushOutbox: giving up on ${entry.table} ${entry.op} uid=${entry.uid} after ${attempts} attempts, dropping from outbox`,
+          err, entry,
+        )
+        logDroppedEntry(entry, attempts, err)
+        if (entry.id != null) await db.outbox.delete(entry.id)
+        continue
+      }
+      console.error('flushOutbox: failed, will retry', entry.table, entry.op, entry.uid, `attempt ${attempts}/${MAX_ATTEMPTS}`, err)
+      if (entry.id != null) await db.outbox.update(entry.id, { attempts })
       break
     }
   }

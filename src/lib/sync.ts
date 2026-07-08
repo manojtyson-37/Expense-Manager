@@ -48,7 +48,19 @@ function txnKey(t: { type: string; amount: number; category: string; account?: s
 }
 
 export async function syncFromCloud(userId: string) {
-  await flushOutbox().catch(err => console.error('flushOutbox error, continuing sync:', err))
+  await flushOutbox().catch(err => console.error('flushOutbox error:', err))
+  // If entries are still queued, the flush didn't fully drain (offline event
+  // fired before connectivity was actually usable, or a push/delete failed).
+  // Pulling and merging now would overwrite the not-yet-synced local state
+  // with a stale cloud snapshot — e.g. a transaction deleted offline whose
+  // delete never reached Supabase would resurrect on the merge below, since
+  // transactions have no tombstone. Skip this pass; the next sync retries.
+  // Scoped by userId (outbox has no index on it, so filter in JS rather than
+  // bump the Dexie schema version) — an unrelated stuck entry left behind by
+  // a different account on a shared device must not block this account's
+  // sync forever.
+  const stillPending = (await db.outbox.toArray()).filter(e => e.userId === userId).length
+  if (stillPending > 0) return
   try {
     const { data: cloudTxns, error: txnErr } = await supabase
       .from('transactions').select('*').eq('user_id', userId).order('date', { ascending: false })

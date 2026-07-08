@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { db, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, newUid } from '../db'
+import { db, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type Goal, newUid } from '../db'
 import { useAuth } from '../lib/AuthContext'
-import { fullResync, syncFromCloud, clearAllData, pushSubscription, pushLoan } from '../lib/sync'
+import { fullResync, syncFromCloud, clearAllData, pushSubscription, pushLoan, pushGoal } from '../lib/sync'
 import { supabase } from '../lib/supabase'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
@@ -10,11 +10,11 @@ import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Tar
 
 function isValidBackup(data: unknown): data is {
   transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[]
-  budgets?: unknown[]; subscriptions?: unknown[]; loans?: unknown[]
+  budgets?: unknown[]; subscriptions?: unknown[]; loans?: unknown[]; goals?: unknown[]
 } {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
-  for (const key of ['transactions', 'categories', 'accounts', 'budgets', 'subscriptions', 'loans']) {
+  for (const key of ['transactions', 'categories', 'accounts', 'budgets', 'subscriptions', 'loans', 'goals']) {
     if (d[key] && !Array.isArray(d[key])) return false
   }
   if (d.transactions) {
@@ -35,6 +35,11 @@ function isValidBackup(data: unknown): data is {
   if (d.loans) {
     for (const l of d.loans as Record<string, unknown>[]) {
       if (!l.person || typeof l.totalAmount !== 'number' || !l.date) return false
+    }
+  }
+  if (d.goals) {
+    for (const g of d.goals as Record<string, unknown>[]) {
+      if (!g.name || typeof g.targetAmount !== 'number') return false
     }
   }
   return true
@@ -93,7 +98,8 @@ export default function Settings() {
     const budgets = await db.budgets.toArray()
     const subscriptions = await db.subscriptions.toArray()
     const loans = await db.loans.toArray()
-    const data = JSON.stringify({ transactions, categories, accounts, budgets, subscriptions, loans }, null, 2)
+    const goals = await db.goals.toArray()
+    const data = JSON.stringify({ transactions, categories, accounts, budgets, subscriptions, loans, goals }, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -159,6 +165,12 @@ export default function Settings() {
             ...l, uid: l.uid || newUid(),
           })))
         }
+        if (data.goals) {
+          await db.goals.clear()
+          await db.goals.bulkAdd((data.goals as Goal[]).map(g => ({
+            ...g, uid: g.uid || newUid(), savedAmount: g.savedAmount ?? 0,
+          })))
+        }
         if (user) {
           await fullResync(user.id)
           // fullResync only covers transactions/categories/accounts (its
@@ -197,6 +209,15 @@ export default function Settings() {
               console.error('Import: clearing cloud loans failed, skipping re-push:', delErr)
             } else {
               for (const l of loans) await pushLoan(l)
+            }
+          }
+          if (data.goals) {
+            const goals = await db.goals.toArray()
+            const { error: delErr } = await supabase.from('goals').delete().eq('user_id', user.id)
+            if (delErr) {
+              console.error('Import: clearing cloud goals failed, skipping re-push:', delErr)
+            } else {
+              for (const g of goals) await pushGoal(user.id, g)
             }
           }
         }
@@ -325,6 +346,17 @@ export default function Settings() {
           <div>
             <div className="font-semibold text-sm">Money Owed</div>
             <div className="text-xs text-text-muted">Track money lent to friends and family</div>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/goals')}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+        >
+          <Target size={20} className="text-primary shrink-0" />
+          <div>
+            <div className="font-semibold text-sm">Savings Goals</div>
+            <div className="text-xs text-text-muted">Set targets and track progress</div>
           </div>
         </button>
 

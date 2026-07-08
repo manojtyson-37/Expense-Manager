@@ -17,6 +17,7 @@ export interface Subscription {
   uid: string // stable cross-device id (local + cloud)
   name: string
   amount: number
+  type: 'income' | 'expense' // defaults to 'expense' for rows predating this field
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
   startDate: string // YYYY-MM-DD
   endDate?: string // YYYY-MM-DD
@@ -40,9 +41,20 @@ export interface Loan {
   person: string
   totalAmount: number
   date: string // YYYY-MM-DD
+  dueDate?: string // YYYY-MM-DD
   status: 'pending' | 'returned'
   payments: PaymentRecord[]
   note?: string
+  createdAt: number
+}
+
+export interface Goal {
+  id?: number
+  uid: string // stable cross-device id (local + cloud)
+  name: string
+  targetAmount: number
+  targetDate?: string // YYYY-MM-DD
+  savedAmount: number
   createdAt: number
 }
 
@@ -96,6 +108,7 @@ const db = new Dexie('ExpenseTracker') as Dexie & {
   subscriptions: EntityTable<Subscription, 'id'>
   loans: EntityTable<Loan, 'id'>
   outbox: EntityTable<OutboxEntry, 'id'>
+  goals: EntityTable<Goal, 'id'>
 }
 
 db.version(1).stores({
@@ -163,6 +176,24 @@ db.version(7).stores({
   subscriptions: '++id, uid, status, startDate, createdAt',
   loans: '++id, uid, type, person, status, date, createdAt',
   outbox: '++id, table, uid, createdAt',
+})
+
+// v8: add type to subscriptions (backfill existing rows as 'expense', the
+// only kind that existed before this field). Add goals table (new — no
+// backfill needed).
+db.version(8).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+  subscriptions: '++id, uid, status, startDate, createdAt',
+  loans: '++id, uid, type, person, status, date, createdAt',
+  outbox: '++id, table, uid, createdAt',
+  goals: '++id, uid, createdAt',
+}).upgrade(async tx => {
+  await tx.table('subscriptions').toCollection().modify((sub: Subscription) => {
+    if (!sub.type) sub.type = 'expense'
+  })
 })
 
 export async function seedAccounts() {

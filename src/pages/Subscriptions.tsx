@@ -39,9 +39,12 @@ const FREQUENCY_LABELS: Record<Frequency, string> = {
   yearly: 'Yearly',
 }
 
+type SubType = Subscription['type']
+
 interface FormState {
   name: string
   amount: string
+  type: SubType
   frequency: Frequency
   startDate: string
   category: string
@@ -57,6 +60,7 @@ function localToday(): string {
 const emptyForm = (): FormState => ({
   name: '',
   amount: '',
+  type: 'expense',
   frequency: 'monthly',
   startDate: localToday(),
   category: '',
@@ -84,7 +88,9 @@ function SubCard({ sub, fmt, onToggle, onEdit, onDelete }: SubCardProps) {
             </span>
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-base font-bold">{fmt(sub.amount)}</span>
+            <span className={`text-base font-bold ${sub.type === 'income' ? 'text-income' : ''}`}>
+              {sub.type === 'income' ? '+' : ''}{fmt(sub.amount)}
+            </span>
             <span className="text-xs text-text-muted">/ {FREQUENCY_LABELS[sub.frequency]}</span>
             {sub.category && (
               <span className="text-xs text-text-muted">· {sub.category}</span>
@@ -200,6 +206,7 @@ export default function Subscriptions() {
     setForm({
       name: sub.name,
       amount: String(sub.amount),
+      type: sub.type,
       frequency: sub.frequency,
       startDate: sub.startDate,
       category: sub.category ?? '',
@@ -235,6 +242,7 @@ export default function Subscriptions() {
       await editSubscription(editingUid, {
         name: form.name.trim(),
         amount: amt,
+        type: form.type,
         frequency: form.frequency,
         startDate: form.startDate,
         category: form.category || undefined,
@@ -245,6 +253,7 @@ export default function Subscriptions() {
       await addSubscription(
         form.name.trim(),
         amt,
+        form.type,
         form.frequency,
         form.startDate,
         form.category || undefined,
@@ -350,6 +359,29 @@ export default function Subscriptions() {
                   {errors.name && <p className="text-xs text-expense mt-1">{errors.name}</p>}
                 </div>
 
+                {/* Type */}
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Type</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setForm(f => ({ ...f, type: 'expense' }))}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        form.type === 'expense' ? 'bg-expense text-white' : 'bg-surface-light text-text-muted'
+                      }`}
+                    >
+                      Expense
+                    </button>
+                    <button
+                      onClick={() => setForm(f => ({ ...f, type: 'income' }))}
+                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        form.type === 'income' ? 'bg-income text-white' : 'bg-surface-light text-text-muted'
+                      }`}
+                    >
+                      Income
+                    </button>
+                  </div>
+                </div>
+
                 {/* Amount */}
                 <div>
                   <label className="text-xs text-text-muted font-medium block mb-1.5">Amount *</label>
@@ -420,7 +452,9 @@ export default function Subscriptions() {
                 {/* Account */}
                 {accounts && accounts.length > 0 && (
                   <div>
-                    <label className="text-xs text-text-muted font-medium block mb-1.5">Debit Account (optional)</label>
+                    <label className="text-xs text-text-muted font-medium block mb-1.5">
+                      {form.type === 'income' ? 'Credit Account (optional)' : 'Debit Account (optional)'}
+                    </label>
                     <select
                       value={form.account}
                       onChange={e => setForm(f => ({ ...f, account: e.target.value }))}

@@ -1,8 +1,9 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
 import { processSubscriptions, dedupeSubscriptionTransactions } from './lib/subscriptionProcessor'
+import { db } from './db'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import AddTransaction from './pages/AddTransaction'
@@ -11,6 +12,7 @@ import Accounts from './pages/Accounts'
 import Budgets from './pages/Budgets'
 import Subscriptions from './pages/Subscriptions'
 import Loans from './pages/Loans'
+import Goals from './pages/Goals'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -20,18 +22,43 @@ import OfflineBadge from './components/OfflineBadge'
 import { useAccounts } from './hooks/useAccounts'
 import { Cloud } from 'lucide-react'
 
+// Local date, not UTC — avoids the "overdue at midnight in a different
+// timezone than the user's" bug from toISOString().
+function localToday(): string {
+  const d = new Date()
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
+
 export default function App() {
+  const navigate = useNavigate()
   const { user, loading, recovery } = useAuth()
   const accounts = useAccounts()
   const lastSyncRef = useRef(0)
   const syncingRef = useRef(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [subToast, setSubToast] = useState<string | null>(null)
+  const [loanToast, setLoanToast] = useState<string | null>(null)
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+
+  // At most once per day per user (not every sync) — a running toast every
+  // app-open would be noise, not a reminder.
+  const checkOverdueLoans = useCallback(async (userId: string) => {
+    const today = localToday()
+    const key = `loan-reminder-shown:${userId}:${today}`
+    if (localStorage.getItem(key)) return
+    const overdue = await db.loans
+      .filter(l => l.status === 'pending' && !!l.dueDate && l.dueDate < today)
+      .count()
+    if (overdue > 0) {
+      setLoanToast(`${overdue} loan${overdue === 1 ? ' is' : 's are'} overdue`)
+      localStorage.setItem(key, '1')
+      setTimeout(() => setLoanToast(null), 8000)
+    }
+  }, [])
 
   const sync = useCallback(() => {
     if (!user || syncingRef.current) return
@@ -49,12 +76,13 @@ export default function App() {
           setTimeout(() => setSubToast(null), 4000)
         }
       })
+      .then(() => checkOverdueLoans(user.id))
       .catch(console.error)
       .finally(() => {
         syncingRef.current = false
         setIsSyncing(false)
       })
-  }, [user])
+  }, [user, checkOverdueLoans])
 
   useEffect(() => { sync() }, [sync])
 
@@ -105,6 +133,14 @@ export default function App() {
           {subToast}
         </div>
       )}
+      {loanToast && (
+        <button
+          onClick={() => { setLoanToast(null); navigate('/loans') }}
+          className={`fixed left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 bg-expense text-white rounded-2xl shadow-lg text-sm font-medium whitespace-nowrap ${subToast ? 'bottom-36' : 'bottom-24'}`}
+        >
+          {loanToast} — tap to view
+        </button>
+      )}
       <Routes>
         <Route path="/" element={<Dashboard month={currentMonth} onMonthChange={setCurrentMonth} />} />
         <Route path="/transactions" element={<Transactions month={currentMonth} onMonthChange={setCurrentMonth} />} />
@@ -115,6 +151,7 @@ export default function App() {
         <Route path="/budgets" element={<Budgets month={currentMonth} />} />
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/loans" element={<Loans />} />
+        <Route path="/goals" element={<Goals />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       <NavBar />

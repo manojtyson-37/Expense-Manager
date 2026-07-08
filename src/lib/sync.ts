@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type PaymentRecord, seedAccounts, DEFAULT_CATEGORIES } from '../db'
+import { db, newUid, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type Goal, type PaymentRecord, seedAccounts, DEFAULT_CATEGORIES } from '../db'
 import { queueOp, flushOutbox } from './outbox'
 
 async function getUserId(): Promise<string | null> {
@@ -222,6 +222,7 @@ export async function syncFromCloud(userId: string) {
           uid: s.uid,
           name: s.name,
           amount: Number(s.amount),
+          type: (s.type as Subscription['type']) ?? 'expense',
           frequency: s.frequency as Subscription['frequency'],
           startDate: s.start_date,
           endDate: s.end_date || undefined,
@@ -255,11 +256,38 @@ export async function syncFromCloud(userId: string) {
           person: l.person,
           totalAmount: Number(l.total_amount),
           date: l.date,
+          dueDate: l.due_date || undefined,
           status: l.status as Loan['status'],
           payments: (l.payments || []) as PaymentRecord[],
           note: l.note || undefined,
           createdAt: l.created_at ? new Date(l.created_at).getTime() : Date.now(),
         })) as Loan[])
+      }
+    }
+
+    // Pull goals — push local-only first, then replace with merged set
+    const { data: cloudGoals } = await supabase
+      .from('goals').select('*').eq('user_id', userId)
+    const localGoals = await db.goals.toArray()
+    const cloudGoalUids = new Set((cloudGoals || []).map(g => g.uid))
+    for (const g of localGoals) {
+      if (!cloudGoalUids.has(g.uid)) {
+        await pushGoal(userId, g)
+      }
+    }
+    if ((cloudGoals || []).length > 0 || localGoals.length > 0) {
+      const { data: mergedGoals } = await supabase
+        .from('goals').select('*').eq('user_id', userId)
+      if (mergedGoals && mergedGoals.length > 0) {
+        await db.goals.clear()
+        await db.goals.bulkAdd(mergedGoals.map(g => ({
+          uid: g.uid,
+          name: g.name,
+          targetAmount: Number(g.target_amount),
+          targetDate: g.target_date || undefined,
+          savedAmount: Number(g.saved_amount),
+          createdAt: g.created_at ? new Date(g.created_at).getTime() : Date.now(),
+        })) as Goal[])
       }
     }
   } catch (err) {
@@ -447,7 +475,7 @@ export async function clearAllData(userId: string) {
 
 export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {
   const payload: Record<string, unknown> = {
-    user_id: userId, uid: s.uid, name: s.name, amount: s.amount, frequency: s.frequency,
+    user_id: userId, uid: s.uid, name: s.name, amount: s.amount, type: s.type ?? 'expense', frequency: s.frequency,
     start_date: s.startDate, end_date: s.endDate || null, status: s.status, category: s.category || null,
     account: s.account || null, note: s.note || null,
     created_at: new Date(s.createdAt).toISOString(),
@@ -475,7 +503,7 @@ export async function pushLoan(loan: Omit<Loan, 'id'>) {
   if (!userId) return
   const payload: Record<string, unknown> = {
     user_id: userId, uid: loan.uid, type: loan.type ?? 'lent', person: loan.person, total_amount: loan.totalAmount,
-    date: loan.date, status: loan.status, payments: loan.payments, note: loan.note || null,
+    date: loan.date, due_date: loan.dueDate || null, status: loan.status, payments: loan.payments, note: loan.note || null,
     created_at: new Date(loan.createdAt).toISOString(),
   }
   if (!navigator.onLine) {
@@ -496,4 +524,30 @@ export async function deleteCloudLoan(uid: string) {
   const { error } = await supabase.from('loans')
     .delete().eq('user_id', userId).eq('uid', uid)
   if (error) console.error('Delete cloud loan failed:', error)
+}
+
+export async function pushGoal(userId: string, g: Omit<Goal, 'id'>) {
+  const payload = {
+    user_id: userId, uid: g.uid, name: g.name, target_amount: g.targetAmount,
+    target_date: g.targetDate || null, saved_amount: g.savedAmount,
+    created_at: new Date(g.createdAt).toISOString(),
+  }
+  if (!navigator.onLine) {
+    await queueOp({ op: 'upsert', table: 'goals', uid: g.uid, userId, payload })
+    return
+  }
+  const { error } = await supabase.from('goals').upsert(payload, { onConflict: 'user_id,uid' })
+  if (error) console.error('Push goal failed:', error)
+}
+
+export async function deleteCloudGoal(uid: string) {
+  const userId = await getUserId()
+  if (!userId) return
+  if (!navigator.onLine) {
+    await queueOp({ op: 'delete', table: 'goals', uid, userId })
+    return
+  }
+  const { error } = await supabase.from('goals')
+    .delete().eq('user_id', userId).eq('uid', uid)
+  if (error) console.error('Delete cloud goal failed:', error)
 }

@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 // Only uid-keyed tables (those with a user_id,uid composite unique constraint in Supabase)
 // support 'upsert'. Tables keyed by natural columns (categories/accounts by
 // name, budgets by category+month) use 'insert' + 'delete' with matchEq instead.
-const UID_CONFLICT_TABLES = new Set(['transactions', 'subscriptions', 'loans'])
+const UID_CONFLICT_TABLES = new Set(['transactions', 'subscriptions', 'loans', 'goals'])
 
 export async function queueOp(entry: Omit<OutboxEntry, 'id' | 'createdAt'>): Promise<void> {
   if (!UID_CONFLICT_TABLES.has(entry.table) && entry.op === 'upsert') {

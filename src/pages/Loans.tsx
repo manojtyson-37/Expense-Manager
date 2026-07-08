@@ -12,6 +12,7 @@ interface AddFormState {
   person: string
   amount: string
   date: string
+  dueDate: string
   note: string
 }
 
@@ -24,8 +25,14 @@ const emptyAddForm = (): AddFormState => ({
   person: '',
   amount: '',
   date: new Date().toISOString().slice(0, 10),
+  dueDate: '',
   note: '',
 })
+
+function localToday(): string {
+  const d = new Date()
+  return [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+}
 
 const emptyPaymentForm = (): PaymentFormState => ({
   amount: '',
@@ -93,6 +100,11 @@ function LoanCard({ loan, expandedIds, toggleExpanded, openEdit, openPayment, ha
             <p className="text-xs text-text-muted mt-0.5">
               {loanIsBorrowed ? 'Borrowed' : 'Lent'} {fmtDate(loan.date)}
             </p>
+            {!isReturned && loan.dueDate && (
+              <p className={`text-xs mt-0.5 font-medium ${loan.dueDate < localToday() ? 'text-expense' : 'text-text-muted'}`}>
+                {loan.dueDate < localToday() ? 'Overdue — was due' : 'Due'} {fmtDate(loan.dueDate)}
+              </p>
+            )}
             {loan.note && (
               <p className="text-xs text-text-muted mt-0.5 truncate">{loan.note}</p>
             )}
@@ -223,13 +235,14 @@ export default function Loans() {
       addForm.date,
       addForm.note.trim() || undefined,
       activeTab,
+      addForm.dueDate || undefined,
     )
     closeAdd()
   }
 
   function openEdit(loan: Loan) {
     setEditLoan(loan)
-    setEditForm({ person: loan.person, amount: String(loan.totalAmount), date: loan.date, note: loan.note ?? '' })
+    setEditForm({ person: loan.person, amount: String(loan.totalAmount), date: loan.date, dueDate: loan.dueDate ?? '', note: loan.note ?? '' })
     setEditErrors({})
   }
 
@@ -251,7 +264,7 @@ export default function Loans() {
 
   async function handleEditSave() {
     if (!editLoan?.id || !validateEdit()) return
-    await updateLoan(editLoan.id, editForm.person.trim(), parseFloat(editForm.amount), editForm.date, editForm.note.trim() || undefined)
+    await updateLoan(editLoan.id, editForm.person.trim(), parseFloat(editForm.amount), editForm.date, editForm.note.trim() || undefined, editForm.dueDate || undefined)
     closeEdit()
   }
 
@@ -456,6 +469,16 @@ export default function Loans() {
                 </div>
 
                 <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    value={addForm.dueDate}
+                    onChange={e => setAddForm(f => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
                   <label className="text-xs text-text-muted font-medium block mb-1.5">Note (optional)</label>
                   <input
                     type="text"
@@ -617,6 +640,16 @@ export default function Loans() {
                     className="w-full text-sm"
                   />
                   {editErrors.date && <p className="text-xs text-expense mt-1">{editErrors.date}</p>}
+                </div>
+
+                <div>
+                  <label className="text-xs text-text-muted font-medium block mb-1.5">Due Date (optional)</label>
+                  <input
+                    type="date"
+                    value={editForm.dueDate}
+                    onChange={e => setEditForm(f => ({ ...f, dueDate: e.target.value }))}
+                    className="w-full text-sm"
+                  />
                 </div>
 
                 <div>

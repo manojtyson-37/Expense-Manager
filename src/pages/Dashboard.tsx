@@ -4,6 +4,7 @@ import { useAccounts } from '../hooks/useAccounts'
 import { useBudgets } from '../hooks/useBudgets'
 import { useSubscriptions } from '../hooks/useSubscriptions'
 import { useLoans } from '../hooks/useLoans'
+import { useGoals } from '../hooks/useGoals'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
@@ -83,6 +84,9 @@ export default function Dashboard({ month, onMonthChange }: Props) {
   const { symbol, format } = useCurrency()
   const { totalRecurring } = useSubscriptions()
   const { totalOwed } = useLoans()
+  const { goals } = useGoals()
+  const activeGoals = goals?.filter(g => g.savedAmount < g.targetAmount) ?? []
+  const featuredGoal = activeGoals[0]
 
   const recentTransactions = transactions?.slice(0, 5) || []
   const expenseCategories = categoryTotals?.filter(c => c.type === 'expense') || []
@@ -229,6 +233,26 @@ export default function Dashboard({ month, onMonthChange }: Props) {
           <div className="text-xs text-text-muted">from friends</div>
         </button>
       </div>
+
+      {/* Featured Goal */}
+      {featuredGoal && (
+        <div className="px-4 mb-5">
+          <button onClick={() => navigate('/goals')} className="w-full bg-surface rounded-2xl p-3.5 text-left active:bg-surface-light/50">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-text-muted uppercase tracking-wider">Goal · {featuredGoal.name}</div>
+              <div className="text-xs text-text-muted">
+                {format(featuredGoal.savedAmount)} / {format(featuredGoal.targetAmount)}
+              </div>
+            </div>
+            <div className="h-2 bg-surface-light rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${featuredGoal.targetAmount > 0 ? Math.min(100, (featuredGoal.savedAmount / featuredGoal.targetAmount) * 100) : 0}%` }}
+              />
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Spending Breakdown with Donut */}
       {expenseCategories.length > 0 && (

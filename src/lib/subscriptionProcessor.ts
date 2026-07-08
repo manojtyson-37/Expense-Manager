@@ -137,9 +137,9 @@ export async function processSubscriptions(): Promise<number> {
         const uid = newUid()
         const txn: Transaction = {
           uid,
-          type: 'expense',
+          type: sub.type,
           amount: sub.amount,
-          category: sub.category || 'Bills',
+          category: sub.category || (sub.type === 'income' ? 'Other Income' : 'Bills'),
           account: sub.account || fallbackAccount,
           note: sub.name,
           date,

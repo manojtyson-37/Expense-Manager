@@ -34,6 +34,7 @@ export async function addLoan(
   date: string,
   note?: string,
   type: 'lent' | 'borrowed' = 'lent',
+  dueDate?: string,
 ) {
   const uid = newUid()
   const loan: Loan = {
@@ -42,6 +43,7 @@ export async function addLoan(
     person,
     totalAmount: amount,
     date,
+    dueDate,
     status: 'pending',
     payments: [],
     note,
@@ -65,14 +67,14 @@ export async function logLoanPayment(id: number, amount: number, date: string) {
   if (updated) await pushLoan(updated)
 }
 
-export async function updateLoan(id: number, person: string, amount: number, date: string, note?: string) {
+export async function updateLoan(id: number, person: string, amount: number, date: string, note?: string, dueDate?: string) {
   const loan = await db.loans.get(id)
   if (!loan) return
   const totalPaid = loan.payments.reduce((s, p) => s + p.amount, 0)
   const status: Loan['status'] = totalPaid >= amount ? 'returned' : 'pending'
-  const fields = { person, totalAmount: amount, date, note, status, createdAt: Date.now() }
+  const fields = { person, totalAmount: amount, date, dueDate, note, status, createdAt: Date.now() }
   await db.loans.update(id, fields)
-  const pushPayload: Omit<Loan, 'id'> = { uid: loan.uid, type: loan.type, person, totalAmount: amount, date, note, status, payments: loan.payments, createdAt: fields.createdAt }
+  const pushPayload: Omit<Loan, 'id'> = { uid: loan.uid, type: loan.type, person, totalAmount: amount, date, dueDate, note, status, payments: loan.payments, createdAt: fields.createdAt }
   await pushLoan(pushPayload)
 }
 

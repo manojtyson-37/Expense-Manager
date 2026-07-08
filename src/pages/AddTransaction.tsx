@@ -180,14 +180,14 @@ export default function AddTransaction() {
           />
         </div>
 
-        {/* Note */}
+        {/* Note / Merchant */}
         <div>
-          <label className="text-xs text-text-muted block mb-1">Note</label>
+          <label className="text-xs text-text-muted block mb-1">Note / Merchant</label>
           <input
             type="text"
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="Optional note..."
+            placeholder="e.g. Swiggy, Amazon, Rent"
           />
         </div>
 

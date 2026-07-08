@@ -9,7 +9,9 @@ export function useSubscriptions() {
 
   const totalRecurring = useLiveQuery(async () => {
     const all = await db.subscriptions.toArray()
-    const active = all.filter(s => s.status === 'active')
+    // Expense-only: this feeds the dashboard's "monthly subscriptions" spend
+    // card, so a recurring income sub (salary) shouldn't inflate it.
+    const active = all.filter(s => s.status === 'active' && s.type === 'expense')
     // For simplicity, sum monthly equivalents (daily*30, weekly*4.3, yearly/12)
     return active.reduce((sum, s) => {
       const monthly =
@@ -24,12 +26,13 @@ export function useSubscriptions() {
   return { subscriptions, totalRecurring }
 }
 
-export async function addSubscription(name: string, amount: number, frequency: Subscription['frequency'], startDate: string, category?: string, account?: string, note?: string) {
+export async function addSubscription(name: string, amount: number, type: Subscription['type'], frequency: Subscription['frequency'], startDate: string, category?: string, account?: string, note?: string) {
   const uid = newUid()
   const sub: Subscription = {
     uid,
     name,
     amount,
+    type,
     frequency,
     startDate,
     status: 'active',

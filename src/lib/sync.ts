@@ -3,8 +3,12 @@ import { db, newUid, type Transaction, type Category, type Account, type Budget,
 import { queueOp, flushOutbox } from './outbox'
 
 async function getUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser()
-  return data.user?.id ?? null
+  // getSession() reads the cached session from localStorage — no network
+  // call. getUser() hits Supabase's Auth server every time, which throws
+  // offline and kills every add/edit/delete before the outbox offline-check
+  // ever runs (root cause of "outbox doesn't work offline").
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user?.id ?? null
 }
 
 export { getUserId }

@@ -31,13 +31,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recovery, setRecovery] = useState(false)
 
   useEffect(() => {
+    // getSession() silently tries to refresh an expired/near-expired token
+    // over the network before resolving. Offline, that fetch doesn't fail
+    // fast — it hangs until a long OS-level timeout, so `loading` never
+    // clears and the app is stuck on the loading screen. Race it against a
+    // short timeout and fall back to the raw cached session in localStorage
+    // (read directly, no network) so the app still opens offline.
+    let settled = false
+    let usedFallback = false
+    const timeout = setTimeout(() => {
+      if (settled) return
+      usedFallback = true
+      const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+      const cached = key ? JSON.parse(localStorage.getItem(key) || 'null') : null
+      setSession(cached)
+      setUser(cached?.user ?? null)
+      setLoading(false)
+    }, 2500)
+
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
+        settled = true
+        clearTimeout(timeout)
+        // A late resolve with session:null after the offline fallback already
+        // showed a logged-in user is an expired-refresh failure, not a real
+        // sign-out — keep the fallback state instead of bouncing them to Login.
+        if (usedFallback && !session) return
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
       })
       .catch(() => {
+        settled = true
+        clearTimeout(timeout)
         setLoading(false)
       })
 
@@ -48,7 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function signOut() {

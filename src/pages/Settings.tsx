@@ -188,7 +188,7 @@ export default function Settings() {
               console.error('Import: clearing cloud budgets failed, skipping re-push:', delErr)
             } else if (budgets.length > 0) {
               const { error: insErr } = await supabase.from('budgets').insert(budgets.map(b => ({
-                user_id: user.id, category: b.category, limit_amount: b.limit, month: b.month,
+                user_id: user.id, category: b.category, limit_amount: b.limit, month: b.month, rollover: b.rollover ?? false,
               })))
               if (insErr) console.error('Import: pushing budgets to cloud failed:', insErr)
             }

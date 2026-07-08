@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useTransactions, deleteTransaction, restoreTransaction } from '../hooks/useTransactions'
+import { useTransactions, deleteTransaction, restoreTransaction, addTransaction } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
-import { Download, Search, X } from 'lucide-react'
+import { Download, Upload, Search, X } from 'lucide-react'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
 
@@ -29,6 +29,78 @@ function exportCSV(transactions: { type: string; amount: number; category: strin
   a.download = `expenses-${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// Minimal CSV line parser — handles quoted fields with embedded commas and
+// escaped "" quotes, since exportCSV above quotes category/account/note.
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = []
+  let cur = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++ }
+      else if (ch === '"') { inQuotes = false }
+      else { cur += ch }
+    } else {
+      if (ch === '"') inQuotes = true
+      else if (ch === ',') { fields.push(cur); cur = '' }
+      else cur += ch
+    }
+  }
+  fields.push(cur)
+  return fields
+}
+
+interface ParsedCSVRow {
+  type: 'income' | 'expense'
+  amount: number
+  category: string
+  account: string
+  note: string
+  date: string
+}
+
+// Expects the same "Date,Type,Category,Account,Amount,Note" shape exportCSV
+// produces — matching the export format is the whole point of round-tripping.
+function parseCSV(text: string): { rows: ParsedCSVRow[]; skipped: number } {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0)
+  const rows: ParsedCSVRow[] = []
+  let skipped = 0
+  const dataLines = lines[0]?.toLowerCase().startsWith('date,') ? lines.slice(1) : lines
+  for (const line of dataLines) {
+    const [date, type, category, account, amountStr, note] = parseCSVLine(line)
+    const amount = Math.abs(parseFloat(amountStr))
+    const validType = type === 'income' || type === 'expense'
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !validType || !category || isNaN(amount) || amount <= 0) {
+      skipped++
+      continue
+    }
+    rows.push({ date, type, category, account: account || '', amount, note: note || '' })
+  }
+  return { rows, skipped }
+}
+
+async function handleImportCSV() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.csv'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    const text = await file.text()
+    const { rows, skipped } = parseCSV(text)
+    if (rows.length === 0) {
+      alert(skipped > 0 ? `No valid rows found (${skipped} skipped — check date is YYYY-MM-DD and Type is income/expense).` : 'No rows found in file.')
+      return
+    }
+    for (const r of rows) {
+      await addTransaction({ type: r.type, amount: r.amount, category: r.category, account: r.account, note: r.note, date: r.date })
+    }
+    alert(`Imported ${rows.length} transaction${rows.length === 1 ? '' : 's'}${skipped > 0 ? `, skipped ${skipped} invalid row${skipped === 1 ? '' : 's'}` : ''}.`)
+  }
+  input.click()
 }
 
 export default function Transactions({ month, onMonthChange }: Props) {
@@ -65,6 +137,13 @@ export default function Transactions({ month, onMonthChange }: Props) {
             className="p-2 rounded-full text-text-muted active:bg-surface-light"
           >
             {showSearch ? <X size={20} /> : <Search size={20} />}
+          </button>
+          <button
+            onClick={handleImportCSV}
+            className="p-2 rounded-full text-text-muted active:bg-surface-light"
+            title="Import CSV"
+          >
+            <Upload size={20} />
           </button>
           {list.length > 0 && (
             <button

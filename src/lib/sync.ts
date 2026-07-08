@@ -198,6 +198,7 @@ export async function syncFromCloud(userId: string) {
         category: b.category,
         limit: Number(b.limit_amount),
         month: b.month,
+        rollover: b.rollover ?? false,
       })) as Budget[])
     }
 

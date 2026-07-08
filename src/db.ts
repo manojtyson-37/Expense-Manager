@@ -85,6 +85,7 @@ export interface Budget {
   category: string
   limit: number
   month: string // YYYY-MM
+  rollover?: boolean // carry unspent/overspent into next month's effective limit
 }
 
 export interface OutboxEntry {

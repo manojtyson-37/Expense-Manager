@@ -1,9 +1,9 @@
 import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useCategories } from '../hooks/useCategories'
-import { useBudgets, setBudget, deleteBudget } from '../hooks/useBudgets'
+import { useBudgets, setBudget, deleteBudget, copyBudgetsFromMonth } from '../hooks/useBudgets'
 import { useTransactions } from '../hooks/useTransactions'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Copy } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
@@ -14,22 +14,39 @@ interface Props {
   month: string
 }
 
+function prevMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 2, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export default function Budgets({ month }: Props) {
   const navigate = useNavigate()
   const categories = useCategories('expense')
   const budgets = useBudgets(month)
   const { categoryTotals } = useTransactions(month)
+  const lastMonth = prevMonth(month)
+  const prevBudgets = useBudgets(lastMonth)
+  const { categoryTotals: prevCategoryTotals } = useTransactions(lastMonth)
   const [editingCat, setEditingCat] = useState<string | null>(null)
   const [limitVal, setLimitVal] = useState('')
+  const [rolloverVal, setRolloverVal] = useState(false)
   const [limitError, setLimitError] = useState(false)
+  const [copyMsg, setCopyMsg] = useState('')
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
   const { symbol, format } = useCurrency()
 
   const expenseTotals = new Map(
     (categoryTotals || []).filter(c => c.type === 'expense').map(c => [c.category, c.total])
   )
+  const prevExpenseTotals = new Map(
+    (prevCategoryTotals || []).filter(c => c.type === 'expense').map(c => [c.category, c.total])
+  )
   const budgetMap = new Map(
     (budgets || []).map(b => [b.category, b])
+  )
+  const prevBudgetMap = new Map(
+    (prevBudgets || []).map(b => [b.category, b])
   )
 
   function formatMonth(m: string): string {
@@ -43,10 +60,17 @@ export default function Budgets({ month }: Props) {
       setLimitError(true)
       return
     }
-    await setBudget(category, val, month)
+    await setBudget(category, val, month, rolloverVal)
     setEditingCat(null)
     setLimitVal('')
+    setRolloverVal(false)
     setLimitError(false)
+  }
+
+  async function handleCopyFromLastMonth() {
+    const copied = await copyBudgetsFromMonth(lastMonth, month)
+    setCopyMsg(copied > 0 ? `Copied ${copied} budget${copied === 1 ? '' : 's'} from ${formatMonth(lastMonth)}` : 'Nothing new to copy')
+    setTimeout(() => setCopyMsg(''), 3000)
   }
 
   return (
@@ -55,19 +79,41 @@ export default function Budgets({ month }: Props) {
         <button onClick={() => navigate(-1)} className="p-2 rounded-full active:bg-surface-light">
           <ArrowLeft size={20} />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-lg font-bold">Budgets</h1>
           <p className="text-xs text-text-muted">{formatMonth(month)}</p>
         </div>
+        {(prevBudgets?.length ?? 0) > 0 && (
+          <button
+            onClick={handleCopyFromLastMonth}
+            className="flex items-center gap-1.5 px-3 py-2 bg-surface rounded-xl text-xs font-medium text-primary"
+          >
+            <Copy size={14} />
+            Copy last month
+          </button>
+        )}
       </div>
+
+      {copyMsg && (
+        <p className="text-xs text-text-muted mb-3 -mt-2">{copyMsg}</p>
+      )}
 
       <div className="space-y-3">
         {categories?.map(cat => {
           const budget = budgetMap.get(cat.name)
           const spent = expenseTotals.get(cat.name) || 0
-          const limit = budget?.limit || 0
-          const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0
-          const over = limit > 0 && spent > limit
+          const baseLimit = budget?.limit || 0
+          const prevBudget = prevBudgetMap.get(cat.name)
+          const rolloverCarry = budget?.rollover && prevBudget
+            ? prevBudget.limit - (prevExpenseTotals.get(cat.name) || 0)
+            : 0
+          const limit = baseLimit + rolloverCarry
+          // A deep-overspent previous month can carry the effective limit
+          // below 0 — still budgeted (limit != null via `budget`), just
+          // already over before a rupee is spent this month. Don't let the
+          // `limit > 0` progress-bar math silently hide that.
+          const pct = budget && limit > 0 ? Math.min((spent / limit) * 100, 100) : budget && limit <= 0 ? 100 : 0
+          const over = !!budget && (limit <= 0 ? true : spent > limit)
           const isEditing = editingCat === cat.name
 
           return (
@@ -84,7 +130,7 @@ export default function Budgets({ month }: Props) {
                   <DeleteButton onConfirm={() => scheduleDelete(
                     `"${cat.name}" budget removed`,
                     () => deleteBudget(budget.id!),
-                    () => setBudget(cat.name, budget.limit, month),
+                    () => setBudget(cat.name, budget.limit, month, budget.rollover),
                   )} size={14} />
                 )}
               </div>
@@ -113,8 +159,13 @@ export default function Budgets({ month }: Props) {
                       Over by {format(spent - limit)}
                     </p>
                   )}
+                  {budget.rollover && (
+                    <p className="text-xs text-primary mt-1">
+                      🔄 {rolloverCarry >= 0 ? '+' : ''}{format(rolloverCarry)} rolled over from {formatMonth(lastMonth)}
+                    </p>
+                  )}
                   <button
-                    onClick={() => { setEditingCat(cat.name); setLimitVal(String(limit)) }}
+                    onClick={() => { setEditingCat(cat.name); setLimitVal(String(baseLimit)); setRolloverVal(budget.rollover ?? false) }}
                     className="text-xs text-primary mt-1"
                   >
                     Edit limit
@@ -152,10 +203,18 @@ export default function Budgets({ month }: Props) {
                   {limitError && (
                     <p className="text-xs text-expense mt-1.5">Enter a limit greater than 0</p>
                   )}
+                  <label className="flex items-center gap-2 mt-2 text-xs text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={rolloverVal}
+                      onChange={e => setRolloverVal(e.target.checked)}
+                    />
+                    Roll over unused/overspent from last month
+                  </label>
                 </>
               ) : (
                 <button
-                  onClick={() => { setEditingCat(cat.name); setLimitVal(''); setLimitError(false) }}
+                  onClick={() => { setEditingCat(cat.name); setLimitVal(''); setRolloverVal(false); setLimitError(false) }}
                   className="text-xs text-primary mt-1"
                 >
                   + Set budget

@@ -333,20 +333,39 @@ export async function deleteCloudTransaction(userId: string, t: Transaction) {
 }
 
 export async function pushCategory(userId: string, c: Omit<Category, 'id'>) {
+  const payload = { user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color }
+  if (!navigator.onLine) {
+    // Tombstone-clearing (below) is a same-session refinement; offline, just
+    // queue the insert — flushOutbox re-runs this online where it's safe.
+    await queueOp({ op: 'insert', table: 'categories', userId, payload })
+    return
+  }
   // Re-adding a category clears any prior _deleted tombstone for that name, so
   // the tombstone can't suppress it on the next sync (root cause of re-added
   // tags vanishing after login).
   await supabase.from('categories')
     .delete().eq('user_id', userId).eq('name', c.name).eq('type', '_deleted')
-  const { error } = await supabase.from('categories').insert({
-    user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color,
-  })
+  const { error } = await supabase.from('categories').insert(payload)
   if (error) console.error('Push category failed:', error)
 }
 
 export async function deleteCloudCategory(userId: string, name: string) {
-  // Insert tombstone FIRST for defaults (before deleting), so if delete fails, tombstone still prevents re-add
   const isDefault = DEFAULT_CATEGORIES.some(c => c.name === name)
+  if (!navigator.onLine) {
+    if (isDefault) {
+      await queueOp({
+        op: 'insert', table: 'categories', userId,
+        payload: { user_id: userId, name, type: '_deleted', icon: '', color: '' },
+      })
+    }
+    // matchNeq spares the tombstone just queued above — flushOutbox runs
+    // entries in order, so without this the delete would remove its own
+    // tombstone right after inserting it (the exact "re-added tags vanish
+    // after login" bug the online path's neq below already guards against).
+    await queueOp({ op: 'delete', table: 'categories', userId, matchEq: { name }, matchNeq: { type: '_deleted' } })
+    return
+  }
+  // Insert tombstone FIRST for defaults (before deleting), so if delete fails, tombstone still prevents re-add
   if (isDefault) {
     await supabase.from('categories').insert({
       user_id: userId, name, type: '_deleted', icon: '', color: '',
@@ -361,13 +380,20 @@ export async function deleteCloudCategory(userId: string, name: string) {
 }
 
 export async function pushAccount(userId: string, a: Omit<Account, 'id'>) {
-  const { error } = await supabase.from('accounts').insert({
-    user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color,
-  })
+  const payload = { user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color }
+  if (!navigator.onLine) {
+    await queueOp({ op: 'insert', table: 'accounts', userId, payload })
+    return
+  }
+  const { error } = await supabase.from('accounts').insert(payload)
   if (error) console.error('Push account failed:', error)
 }
 
 export async function deleteCloudAccount(userId: string, name: string) {
+  if (!navigator.onLine) {
+    await queueOp({ op: 'delete', table: 'accounts', userId, matchEq: { name } })
+    return
+  }
   const { error } = await supabase.from('accounts')
     .delete()
     .eq('user_id', userId)

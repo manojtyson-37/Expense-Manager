@@ -77,9 +77,11 @@ export interface Budget {
 
 export interface OutboxEntry {
   id?: number
-  op: 'upsert' | 'delete'
+  op: 'upsert' | 'insert' | 'delete'
   table: string
-  uid: string
+  uid?: string // present for uid-keyed tables (transactions/subscriptions/loans)
+  matchEq?: Record<string, string> // delete match for non-uid tables (categories/accounts/budgets), e.g. { name: 'Food' }
+  matchNeq?: Record<string, string> // delete exclusion, e.g. { type: '_deleted' } to spare a tombstone row
   userId: string
   payload?: Record<string, unknown>
   createdAt: number

@@ -1,21 +1,40 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { db, type Transaction, type Category, type Account, newUid } from '../db'
+import { db, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, newUid } from '../db'
 import { useAuth } from '../lib/AuthContext'
-import { fullResync, syncFromCloud, clearAllData } from '../lib/sync'
+import { fullResync, syncFromCloud, clearAllData, pushSubscription, pushLoan } from '../lib/sync'
+import { supabase } from '../lib/supabase'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
 import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users } from 'lucide-react'
 
-function isValidBackup(data: unknown): data is { transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[] } {
+function isValidBackup(data: unknown): data is {
+  transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[]
+  budgets?: unknown[]; subscriptions?: unknown[]; loans?: unknown[]
+} {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
-  if (d.transactions && !Array.isArray(d.transactions)) return false
-  if (d.categories && !Array.isArray(d.categories)) return false
-  if (d.accounts && !Array.isArray(d.accounts)) return false
+  for (const key of ['transactions', 'categories', 'accounts', 'budgets', 'subscriptions', 'loans']) {
+    if (d[key] && !Array.isArray(d[key])) return false
+  }
   if (d.transactions) {
     for (const t of d.transactions as Record<string, unknown>[]) {
       if (!t.type || !t.amount || !t.category || !t.date) return false
+    }
+  }
+  if (d.budgets) {
+    for (const b of d.budgets as Record<string, unknown>[]) {
+      if (!b.category || typeof b.limit !== 'number' || !b.month) return false
+    }
+  }
+  if (d.subscriptions) {
+    for (const s of d.subscriptions as Record<string, unknown>[]) {
+      if (!s.name || typeof s.amount !== 'number' || !s.frequency || !s.startDate) return false
+    }
+  }
+  if (d.loans) {
+    for (const l of d.loans as Record<string, unknown>[]) {
+      if (!l.person || typeof l.totalAmount !== 'number' || !l.date) return false
     }
   }
   return true
@@ -71,7 +90,10 @@ export default function Settings() {
     const transactions = await db.transactions.toArray()
     const categories = await db.categories.toArray()
     const accounts = await db.accounts.toArray()
-    const data = JSON.stringify({ transactions, categories, accounts }, null, 2)
+    const budgets = await db.budgets.toArray()
+    const subscriptions = await db.subscriptions.toArray()
+    const loans = await db.loans.toArray()
+    const data = JSON.stringify({ transactions, categories, accounts, budgets, subscriptions, loans }, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -88,6 +110,17 @@ export default function Settings() {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
+      // Budgets have no merge-guard in syncFromCloud's pull (unlike
+      // subscriptions/loans, which push local-only rows before the cloud
+      // replace) — an offline import's local budget writes would otherwise
+      // be silently wiped by the next sync's unconditional
+      // clear()+bulkAdd(cloudBudgets). Require online so the cloud-push
+      // below actually runs and there's nothing left for a later sync to
+      // discard.
+      if (!navigator.onLine) {
+        alert('Import requires an internet connection. Please reconnect and try again.')
+        return
+      }
       const text = await file.text()
       try {
         const data = JSON.parse(text)
@@ -110,7 +143,63 @@ export default function Settings() {
           await db.accounts.clear()
           await db.accounts.bulkAdd(data.accounts as Account[])
         }
-        if (user) await fullResync(user.id)
+        if (data.budgets) {
+          await db.budgets.clear()
+          await db.budgets.bulkAdd(data.budgets as Budget[])
+        }
+        if (data.subscriptions) {
+          await db.subscriptions.clear()
+          await db.subscriptions.bulkAdd((data.subscriptions as Subscription[]).map(s => ({
+            ...s, uid: s.uid || newUid(),
+          })))
+        }
+        if (data.loans) {
+          await db.loans.clear()
+          await db.loans.bulkAdd((data.loans as Loan[]).map(l => ({
+            ...l, uid: l.uid || newUid(),
+          })))
+        }
+        if (user) {
+          await fullResync(user.id)
+          // fullResync only covers transactions/categories/accounts (its
+          // original scope) — budgets/subscriptions/loans need their own
+          // cloud replace so a restored backup isn't left half-synced. This
+          // whole import is required to run online (checked above): budgets
+          // have no merge-guard in syncFromCloud's pull, so an offline
+          // import's local-only writes would get silently wiped by the next
+          // sync's unconditional cloud replace — there's no outbox path that
+          // would protect them the way it does for everyday edits.
+          if (data.budgets) {
+            const budgets = await db.budgets.toArray()
+            const { error: delErr } = await supabase.from('budgets').delete().eq('user_id', user.id)
+            if (delErr) {
+              console.error('Import: clearing cloud budgets failed, skipping re-push:', delErr)
+            } else if (budgets.length > 0) {
+              const { error: insErr } = await supabase.from('budgets').insert(budgets.map(b => ({
+                user_id: user.id, category: b.category, limit_amount: b.limit, month: b.month,
+              })))
+              if (insErr) console.error('Import: pushing budgets to cloud failed:', insErr)
+            }
+          }
+          if (data.subscriptions) {
+            const subs = await db.subscriptions.toArray()
+            const { error: delErr } = await supabase.from('subscriptions').delete().eq('user_id', user.id)
+            if (delErr) {
+              console.error('Import: clearing cloud subscriptions failed, skipping re-push:', delErr)
+            } else {
+              for (const s of subs) await pushSubscription(user.id, s)
+            }
+          }
+          if (data.loans) {
+            const loans = await db.loans.toArray()
+            const { error: delErr } = await supabase.from('loans').delete().eq('user_id', user.id)
+            if (delErr) {
+              console.error('Import: clearing cloud loans failed, skipping re-push:', delErr)
+            } else {
+              for (const l of loans) await pushLoan(l)
+            }
+          }
+        }
         alert('Data imported & synced!')
       } catch {
         alert('Invalid backup file.')

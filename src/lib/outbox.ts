@@ -2,7 +2,8 @@ import { db, type OutboxEntry } from '../db'
 import { supabase } from './supabase'
 
 // Only uid-keyed tables (those with a user_id,uid composite unique constraint in Supabase)
-// may be enqueued. Adding a new synced table with uid requires adding it here too.
+// support 'upsert'. Tables keyed by natural columns (categories/accounts by
+// name, budgets by category+month) use 'insert' + 'delete' with matchEq instead.
 const UID_CONFLICT_TABLES = new Set(['transactions', 'subscriptions', 'loans'])
 
 export async function queueOp(entry: Omit<OutboxEntry, 'id' | 'createdAt'>): Promise<void> {
@@ -55,10 +56,20 @@ export async function flushOutbox(userId: string): Promise<void> {
           .from(entry.table)
           .upsert(entry.payload, { onConflict: 'user_id,uid' })
         if (error) throw error
+      } else if (entry.op === 'insert' && entry.payload) {
+        const { error } = await supabase.from(entry.table).insert(entry.payload)
+        if (error) throw error
       } else if (entry.op === 'delete') {
-        const { error } = await supabase
-          .from(entry.table)
-          .delete().eq('user_id', entry.userId).eq('uid', entry.uid)
+        let query = supabase.from(entry.table).delete().eq('user_id', entry.userId)
+        if (entry.uid) {
+          query = query.eq('uid', entry.uid)
+        } else if (entry.matchEq) {
+          for (const [col, val] of Object.entries(entry.matchEq)) query = query.eq(col, val)
+          if (entry.matchNeq) {
+            for (const [col, val] of Object.entries(entry.matchNeq)) query = query.neq(col, val)
+          }
+        }
+        const { error } = await query
         if (error) throw error
       }
       if (entry.id != null) {

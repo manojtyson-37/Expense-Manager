@@ -7,6 +7,10 @@ import { addTransaction, updateTransaction } from '../hooks/useTransactions'
 import { db } from '../db'
 import { ArrowLeft } from 'lucide-react'
 import { useCurrency } from '../lib/CurrencyContext'
+import { useAuth } from '../lib/AuthContext'
+import { matchRule } from '../lib/categoryRules'
+import { useReceipt, setReceipt, deleteReceipt } from '../hooks/useReceipts'
+import { Camera, Trash2 } from 'lucide-react'
 
 export default function AddTransaction() {
   const navigate = useNavigate()
@@ -22,7 +26,67 @@ export default function AddTransaction() {
 
   const categories = useCategories(type)
   const accounts = useAccounts()
-  const { symbol } = useCurrency()
+  const { symbol, format } = useCurrency()
+  const { user } = useAuth()
+  const [anomalyAvg, setAnomalyAvg] = useState<number | null>(null)
+  const [autoCategorized, setAutoCategorized] = useState<string | null>(null)
+
+  function applyRuleMatch() {
+    if (isEdit || !user) return // don't second-guess a category the user already chose while editing
+    const matched = matchRule(user.id, note)
+    if (matched && categories?.some(c => c.name === matched)) {
+      setCategory(matched)
+      // Rule match silently overwrites a manual pick otherwise — flag it so
+      // it's not invisible when it disagrees with what the user chose.
+      setAutoCategorized(matched)
+      setTimeout(() => setAutoCategorized(null), 4000)
+    }
+  }
+
+  // Flags an unusually large expense against this category's own recent
+  // history — not a hard limit, just a "are you sure?" nudge. Needs at least
+  // 3 prior expenses in the category to avoid flagging a brand-new category's
+  // first entry (there's no baseline yet, so nothing to compare against).
+  useEffect(() => {
+    if (type !== 'expense' || !category) { setAnomalyAvg(null); return }
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - 90)
+    // Local date, not toISOString() — this codebase has a documented past
+    // incident from UTC-vs-local date bugs (see App.tsx's localToday()).
+    const cutoffStr = [cutoff.getFullYear(), String(cutoff.getMonth() + 1).padStart(2, '0'), String(cutoff.getDate()).padStart(2, '0')].join('-')
+    db.transactions
+      .where('date').aboveOrEqual(cutoffStr)
+      .and(t => t.type === 'expense' && t.category === category)
+      .toArray()
+      .then(rows => {
+        if (rows.length < 3) { setAnomalyAvg(null); return }
+        setAnomalyAvg(rows.reduce((s, t) => s + t.amount, 0) / rows.length)
+      })
+  }, [type, category])
+
+  const parsedAmount = parseFloat(amount)
+  const isAnomaly = !isNaN(parsedAmount) && anomalyAvg !== null && parsedAmount > anomalyAvg * 2
+
+  const receipt = useReceipt(isEdit ? uid : undefined)
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!receipt) { setReceiptUrl(null); return }
+    const url = URL.createObjectURL(receipt.blob)
+    setReceiptUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [receipt])
+
+  async function handleReceiptSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !uid) return
+    await setReceipt(uid, file)
+    e.target.value = ''
+  }
+
+  async function handleReceiptRemove() {
+    if (!uid) return
+    await deleteReceipt(uid)
+  }
 
   useEffect(() => {
     if (isEdit) {
@@ -120,11 +184,21 @@ export default function AddTransaction() {
               autoFocus
             />
           </div>
+          {isAnomaly && (
+            <p className="text-xs text-amber-500 mt-1.5">
+              ⚠️ That's over 2× your usual {category} spend (avg {format(anomalyAvg!)}) — just flagging, not blocking.
+            </p>
+          )}
         </div>
 
         {/* Category */}
         <div>
-          <label className="text-xs text-text-muted block mb-1">Category</label>
+          <label className="text-xs text-text-muted block mb-1">
+            Category
+            {autoCategorized && (
+              <span className="text-primary font-medium ml-1.5">— auto-set to {autoCategorized} by rule</span>
+            )}
+          </label>
           <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
             {categories?.map(c => (
               <button
@@ -187,9 +261,37 @@ export default function AddTransaction() {
             type="text"
             value={note}
             onChange={e => setNote(e.target.value)}
+            onBlur={applyRuleMatch}
             placeholder="e.g. Swiggy, Amazon, Rent"
           />
         </div>
+
+        {/* Receipt — edit mode only, needs a stable uid that only exists once saved */}
+        {isEdit && (
+          <div>
+            <label className="text-xs text-text-muted block mb-1">
+              Receipt <span className="text-text-muted/70">(this device only, not synced)</span>
+            </label>
+            {receiptUrl ? (
+              <div className="relative inline-block">
+                <img src={receiptUrl} alt="Receipt" className="w-24 h-24 object-cover rounded-xl border border-surface-light" />
+                <button
+                  type="button"
+                  onClick={handleReceiptRemove}
+                  className="absolute -top-2 -right-2 w-7 h-7 bg-expense text-white rounded-full flex items-center justify-center"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 w-fit px-4 py-2.5 bg-surface rounded-xl text-sm text-text-muted cursor-pointer">
+                <Camera size={16} />
+                Attach photo
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleReceiptSelect} />
+              </label>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="text-expense text-xs bg-expense/10 border border-expense/20 rounded-xl px-3 py-2.5">{error}</div>

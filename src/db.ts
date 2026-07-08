@@ -88,6 +88,13 @@ export interface Budget {
   rollover?: boolean // carry unspent/overspent into next month's effective limit
 }
 
+export interface Receipt {
+  id?: number
+  transactionUid: string
+  blob: Blob
+  createdAt: number
+}
+
 export interface OutboxEntry {
   id?: number
   op: 'upsert' | 'insert' | 'delete'
@@ -110,6 +117,7 @@ const db = new Dexie('ExpenseTracker') as Dexie & {
   loans: EntityTable<Loan, 'id'>
   outbox: EntityTable<OutboxEntry, 'id'>
   goals: EntityTable<Goal, 'id'>
+  receipts: EntityTable<Receipt, 'id'>
 }
 
 db.version(1).stores({
@@ -195,6 +203,21 @@ db.version(8).stores({
   await tx.table('subscriptions').toCollection().modify((sub: Subscription) => {
     if (!sub.type) sub.type = 'expense'
   })
+})
+
+// v9: add receipts table (photo attachments, keyed by transaction uid).
+// Device-local only — blobs are never pushed to Supabase (no storage bucket
+// configured), so a receipt attached on one device won't appear on another.
+db.version(9).stores({
+  transactions: '++id, uid, type, category, account, date, createdAt',
+  categories: '++id, name, type',
+  accounts: '++id, name, type',
+  budgets: '++id, category, month',
+  subscriptions: '++id, uid, status, startDate, createdAt',
+  loans: '++id, uid, type, person, status, date, createdAt',
+  outbox: '++id, table, uid, createdAt',
+  goals: '++id, uid, createdAt',
+  receipts: '++id, &transactionUid, createdAt',
 })
 
 export async function seedAccounts() {

@@ -6,7 +6,8 @@ import { fullResync, syncFromCloud, clearAllData, pushSubscription, pushLoan, pu
 import { supabase } from '../lib/supabase'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
-import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users } from 'lucide-react'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users, Bell } from 'lucide-react'
+import { notificationsSupported, notificationPermission, requestNotificationPermission } from '../lib/notifications'
 
 function isValidBackup(data: unknown): data is {
   transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[]
@@ -53,6 +54,7 @@ export default function Settings() {
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
+  const [notifPermission, setNotifPermission] = useState(notificationPermission())
 
   useEffect(() => {
     function onInstall(e: Event) {
@@ -62,6 +64,11 @@ export default function Settings() {
     window.addEventListener('beforeinstallprompt', onInstall)
     return () => window.removeEventListener('beforeinstallprompt', onInstall)
   }, [])
+
+  async function handleEnableNotifications() {
+    const result = await requestNotificationPermission()
+    setNotifPermission(result)
+  }
 
   async function handleSync() {
     if (!user) return
@@ -369,6 +376,24 @@ export default function Settings() {
             <div>
               <div className="font-semibold text-sm">Install App</div>
               <div className="text-xs text-text-muted">Add to your home screen for quick access</div>
+            </div>
+          </button>
+        )}
+
+        {notificationsSupported() && notifPermission !== 'granted' && (
+          <button
+            onClick={handleEnableNotifications}
+            disabled={notifPermission === 'denied'}
+            className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light disabled:opacity-50"
+          >
+            <Bell size={20} className="text-primary shrink-0" />
+            <div>
+              <div className="font-semibold text-sm">Enable Notifications</div>
+              <div className="text-xs text-text-muted">
+                {notifPermission === 'denied'
+                  ? 'Blocked — enable in your browser/device settings'
+                  : 'Get alerts for overdue loans, subscriptions due, budgets over limit'}
+              </div>
             </div>
           </button>
         )}

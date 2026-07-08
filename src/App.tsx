@@ -4,6 +4,7 @@ import { useAuth } from './lib/AuthContext'
 import { syncFromCloud } from './lib/sync'
 import { processSubscriptions, dedupeSubscriptionTransactions } from './lib/subscriptionProcessor'
 import { db } from './db'
+import { notify } from './lib/notifications'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
 import AddTransaction from './pages/AddTransaction'
@@ -55,9 +56,66 @@ export default function App() {
       .filter(l => l.status === 'pending' && !!l.dueDate && l.dueDate < today)
       .count()
     if (overdue > 0) {
-      setLoanToast(`${overdue} loan${overdue === 1 ? ' is' : 's are'} overdue`)
+      const msg = `${overdue} loan${overdue === 1 ? ' is' : 's are'} overdue`
+      setLoanToast(msg)
+      notify('Loan overdue', msg)
       localStorage.setItem(key, '1')
       setTimeout(() => setLoanToast(null), 8000)
+    }
+  }, [])
+
+  // Forward-looking: smallest occurrence of startDate + N*frequency that
+  // isn't before today. Deterministic from startDate alone — doesn't need
+  // the processor's lastPosted tracking, since this only asks "when's next",
+  // not "what did I miss".
+  const checkSubscriptionsDueSoon = useCallback(async (userId: string) => {
+    const today = localToday()
+    const key = `sub-reminder-shown:${userId}:${today}`
+    if (localStorage.getItem(key)) return
+    const active = await db.subscriptions
+      .filter(s => s.status === 'active' && s.startDate <= today && (!s.endDate || s.endDate >= today))
+      .toArray()
+    const fmtDate = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-')
+    const soonCutoff = new Date()
+    soonCutoff.setDate(soonCutoff.getDate() + 2)
+    const soonCutoffStr = fmtDate(soonCutoff)
+
+    const dueSoonNames: string[] = []
+    for (const s of active) {
+      const [y, m, d] = s.startDate.split('-').map(Number)
+      const cur = new Date(y, m - 1, d)
+      const advance = () => {
+        if (s.frequency === 'daily') cur.setDate(cur.getDate() + 1)
+        else if (s.frequency === 'weekly') cur.setDate(cur.getDate() + 7)
+        else if (s.frequency === 'monthly') cur.setMonth(cur.getMonth() + 1)
+        else cur.setFullYear(cur.getFullYear() + 1)
+      }
+      while (fmtDate(cur) < today) advance()
+      const next = fmtDate(cur)
+      if (next >= today && next <= soonCutoffStr) dueSoonNames.push(s.name)
+    }
+    if (dueSoonNames.length > 0) {
+      notify('Subscription due soon', `${dueSoonNames.join(', ')} renew${dueSoonNames.length === 1 ? 's' : ''} within 2 days`)
+      localStorage.setItem(key, '1')
+    }
+  }, [])
+
+  const checkBudgetsOverLimit = useCallback(async (userId: string) => {
+    const today = localToday()
+    const key = `budget-reminder-shown:${userId}:${today}`
+    if (localStorage.getItem(key)) return
+    const month = today.slice(0, 7)
+    const [budgets, monthTxns] = await Promise.all([
+      db.budgets.where('month').equals(month).toArray(),
+      db.transactions.where('date').startsWith(month).and(t => t.type === 'expense').toArray(),
+    ])
+    if (budgets.length === 0) return
+    const spentByCategory = new Map<string, number>()
+    for (const t of monthTxns) spentByCategory.set(t.category, (spentByCategory.get(t.category) || 0) + t.amount)
+    const overLimit = budgets.filter(b => (spentByCategory.get(b.category) || 0) >= b.limit)
+    if (overLimit.length > 0) {
+      notify('Budget over limit', `${overLimit.map(b => b.category).join(', ')} ${overLimit.length === 1 ? 'is' : 'are'} over budget this month`)
+      localStorage.setItem(key, '1')
     }
   }, [])
 
@@ -78,12 +136,14 @@ export default function App() {
         }
       })
       .then(() => checkOverdueLoans(user.id))
+      .then(() => checkSubscriptionsDueSoon(user.id))
+      .then(() => checkBudgetsOverLimit(user.id))
       .catch(console.error)
       .finally(() => {
         syncingRef.current = false
         setIsSyncing(false)
       })
-  }, [user, checkOverdueLoans])
+  }, [user, checkOverdueLoans, checkSubscriptionsDueSoon, checkBudgetsOverLimit])
 
   useEffect(() => { sync() }, [sync])
 

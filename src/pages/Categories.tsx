@@ -2,10 +2,12 @@ import IconRenderer from '../components/IconRenderer'
 import { useState } from 'react'
 import { useCategories, addCategory, updateCategory, deleteCategory } from '../hooks/useCategories'
 import type { Category } from '../db'
-import { Plus, X, Pencil } from 'lucide-react'
+import { Plus, X, Pencil, Trash2 } from 'lucide-react'
 import DeleteButton from '../components/DeleteButton'
 import UndoToast from '../components/UndoToast'
 import { useUndoDelete } from '../hooks/useUndoDelete'
+import { useAuth } from '../lib/AuthContext'
+import { getRules, addRule, deleteRule, type CategoryRule } from '../lib/categoryRules'
 
 const ICONS = ['💰', '💻', '📈', '🎁', '🍔', '🚗', '🛍️', '📄', '🎬', '🏥', '📚', '🛒', '🏠', '⚡', '📦', '✈️', '💊', '🎮', '👕', '💅']
 const COLORS = ['#ef4444', '#f97316', '#f59e0b', '#22c55e', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#a855f7', '#64748b']
@@ -19,6 +21,27 @@ export default function Categories() {
   const [icon, setIcon] = useState('📦')
   const [color, setColor] = useState('#6366f1')
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const { user } = useAuth()
+  const [rules, setRules] = useState<CategoryRule[]>(() => user ? getRules(user.id) : [])
+  const [rulePattern, setRulePattern] = useState('')
+  const [ruleCategory, setRuleCategory] = useState('')
+
+  function refreshRules() {
+    if (user) setRules(getRules(user.id))
+  }
+
+  function handleAddRule() {
+    if (!user || !rulePattern.trim() || !ruleCategory) return
+    addRule(user.id, rulePattern.trim(), ruleCategory)
+    setRulePattern('')
+    refreshRules()
+  }
+
+  function handleDeleteRule(id: string) {
+    if (!user) return
+    deleteRule(user.id, id)
+    refreshRules()
+  }
 
   const incomeCategories = categories?.filter(c => c.type === 'income') || []
   const expenseCategories = categories?.filter(c => c.type === 'expense') || []
@@ -178,6 +201,57 @@ export default function Categories() {
 
       {renderList(expenseCategories, 'Expenses')}
       {renderList(incomeCategories, 'Income')}
+
+      <div className="mb-6">
+        <h2 className="text-xs text-text-muted uppercase tracking-wider mb-2">Auto-Categorize Rules</h2>
+        <p className="text-xs text-text-muted mb-2">
+          When a transaction's note matches, its category fills in automatically.
+        </p>
+        <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light mb-3">
+          {rules.length === 0 ? (
+            <p className="text-xs text-text-muted px-4 py-3">No rules yet</p>
+          ) : (
+            rules.map(r => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="flex-1 text-sm">
+                  "{r.pattern}" <span className="text-text-muted">→</span> {r.category}
+                </span>
+                <button
+                  onClick={() => handleDeleteRule(r.id)}
+                  className="p-2 text-text-muted active:text-expense min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={rulePattern}
+            onChange={e => setRulePattern(e.target.value)}
+            placeholder="e.g. Swiggy"
+            className="flex-1 text-sm"
+          />
+          <select
+            value={ruleCategory}
+            onChange={e => setRuleCategory(e.target.value)}
+            className="text-sm"
+          >
+            <option value="">Category</option>
+            {categories?.map(c => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={handleAddRule}
+            className="px-3 py-2 bg-primary text-white rounded-xl text-sm font-medium shrink-0"
+          >
+            Add
+          </button>
+        </div>
+      </div>
 
       {toast && (
         <UndoToast message={toast.message} onUndo={toast.onUndo} onDismiss={dismiss} />

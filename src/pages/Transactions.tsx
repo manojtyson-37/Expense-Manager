@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useTransactions, deleteTransaction, restoreTransaction, addTransaction } from '../hooks/useTransactions'
 import { useCategories } from '../hooks/useCategories'
 import { useAccounts } from '../hooks/useAccounts'
+import { db } from '../db'
 import MonthPicker from '../components/MonthPicker'
 import TransactionItem from '../components/TransactionItem'
 import { Download, Upload, Search, X } from 'lucide-react'
@@ -110,6 +112,7 @@ export default function Transactions({ month, onMonthChange }: Props) {
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const { toast, scheduleDelete, dismiss } = useUndoDelete()
+  const receiptUids = useLiveQuery(async () => new Set((await db.receipts.toArray()).map(r => r.transactionUid)))
 
   const list = (transactions || []).filter(t => {
     if (!search) return true
@@ -185,7 +188,7 @@ export default function Transactions({ month, onMonthChange }: Props) {
               </div>
               <div className="bg-surface rounded-2xl overflow-hidden divide-y divide-surface-light">
                 {items.map(t => (
-                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id), () => restoreTransaction(t))} />
+                  <TransactionItem key={t.id} transaction={t} categories={categories} accounts={accounts} hasReceipt={receiptUids?.has(t.uid)} onDelete={(id) => scheduleDelete('Transaction deleted', () => deleteTransaction(id), () => restoreTransaction(t))} />
                 ))}
               </div>
             </div>

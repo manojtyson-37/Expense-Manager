@@ -257,7 +257,12 @@ export default function Dashboard({ month, onMonthChange }: Props) {
       {/* Spending Breakdown with Donut */}
       {expenseCategories.length > 0 && (
         <div className="px-4 mb-5">
-          <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Spending Breakdown</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-text-muted uppercase tracking-wider">Spending Breakdown</h2>
+            <button onClick={() => navigate('/trends')} className="text-xs text-primary font-medium">
+              View Trends
+            </button>
+          </div>
           <div className="bg-surface rounded-2xl p-4">
             <div className="flex gap-4">
               {/* Donut */}

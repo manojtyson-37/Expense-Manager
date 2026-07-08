@@ -13,6 +13,7 @@ import Budgets from './pages/Budgets'
 import Subscriptions from './pages/Subscriptions'
 import Loans from './pages/Loans'
 import Goals from './pages/Goals'
+import Trends from './pages/Trends'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import ResetPassword from './pages/ResetPassword'
@@ -152,6 +153,7 @@ export default function App() {
         <Route path="/subscriptions" element={<Subscriptions />} />
         <Route path="/loans" element={<Loans />} />
         <Route path="/goals" element={<Goals />} />
+        <Route path="/trends" element={<Trends />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
       <NavBar />

@@ -1,0 +1,27 @@
+🚀 *Expense Tracker — What's New (v1.3)*
+
+Big update! Here's everything that shipped:
+
+💰 *Money tracking*
+• Salary/recurring income can now be added as a subscription (not just expenses)
+• Loans can have a due date — get a reminder when one's overdue
+• Set a savings goal, track progress toward it, see it on your dashboard
+
+📊 *See your spending better*
+• New Trends page — income vs expense chart, last 6 months
+• See your top spending categories broken down month by month
+• Get a heads-up when a transaction looks unusually large for that category
+
+⚡ *Faster to use*
+• Auto-categorize rules — e.g. "Swiggy" always → Food, automatically
+• Copy last month's budgets in one tap
+• Budgets can roll over unused (or overspent) amount into next month
+• Attach a photo of a receipt to any transaction
+• Get notified (in-app) when a loan's overdue, a subscription's renewing soon, or you've hit a budget limit
+
+🔒 *More reliable*
+• Every edit now works properly offline — categories, accounts, budgets included
+• Backup export/import now covers everything (budgets, subscriptions, loans, goals — not just transactions)
+• Can now import transactions from a CSV file, not just export
+
+That's the whole list 🎉 Let me know if anything looks off!

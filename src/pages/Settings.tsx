@@ -464,7 +464,7 @@ export default function Settings() {
       </div>
 
       <div className="mt-8 text-center text-text-muted text-xs">
-        <p>Expense Tracker v1.2</p>
+        <p>Expense Tracker v1.3</p>
         <p className="mt-1">Data synced to Supabase cloud</p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
 import { flushOutbox } from './outbox'
 import { clearLocalData } from './sync'
@@ -31,6 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [recovery, setRecovery] = useState(false)
+  // Set when signOut()'s network call hangs past its cap and we force the
+  // local session gone ourselves (see signOut below). GoTrueClient's 30s
+  // auto-refresh tick runs independently of that hung call and can still
+  // fire a TOKEN_REFRESHED event with a valid session for the OLD account
+  // afterwards — onAuthStateChange below must ignore that (and any other
+  // stray event) until a real new sign-in happens, or the forced clear
+  // gets silently undone and the same account's data leaks right back in.
+  const forcedSignedOutRef = useRef(false)
 
   useEffect(() => {
     // getSession() silently tries to refresh an expired/near-expired token
@@ -70,6 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (forcedSignedOutRef.current) {
+        // A fresh sign-in is the only event allowed to undo a forced
+        // sign-out — anything else (a stray TOKEN_REFRESHED/USER_UPDATED
+        // for the account we just forced out) is ignored so it can't
+        // repopulate user/session with the old account.
+        if (event !== 'SIGNED_IN') return
+        forcedSignedOutRef.current = false
+      }
       if (event === 'PASSWORD_RECOVERY') setRecovery(true)
       setSession(session)
       setUser(session?.user ?? null)
@@ -121,6 +137,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // wipe. Force the local session gone ourselves so that can't happen,
     // regardless of whether the network call ever completes.
     if (result === TIMED_OUT) {
+      forcedSignedOutRef.current = true
+      // Best-effort: stops the independent 30s auto-refresh tick from
+      // re-fetching this session in the background. Doesn't block on it —
+      // the forcedSignedOutRef guard above is what actually closes the race
+      // regardless of whether this call itself succeeds or hangs too.
+      supabase.auth.stopAutoRefresh().catch(() => {})
       const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
       if (key) localStorage.removeItem(key)
       setSession(null)

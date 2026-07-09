@@ -12,17 +12,36 @@ import { matchRule } from '../lib/categoryRules'
 import { useReceipt, setReceipt, deleteReceipt } from '../hooks/useReceipts'
 import { Camera, Trash2 } from 'lucide-react'
 
+// Mobile browsers reclaim backgrounded tabs under memory pressure, which
+// fully reloads the JS context — plain useState loses whatever was typed.
+// Persisting the in-progress (non-edit) entry to sessionStorage survives
+// that reload; sessionStorage (not localStorage) so it doesn't linger
+// across tabs/sessions once the app is closed for good.
+const DRAFT_KEY = 'add-transaction-draft'
+
+type Draft = { type: 'expense' | 'income'; amount: string; category: string; account: string; note: string; date: string }
+
+function loadDraft(): Draft | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export default function AddTransaction() {
   const navigate = useNavigate()
   const { uid } = useParams()
   const isEdit = !!uid
+  const draft = isEdit ? null : loadDraft()
 
-  const [type, setType] = useState<'expense' | 'income'>('expense')
-  const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState('')
-  const [account, setAccount] = useState('')
-  const [note, setNote] = useState('')
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [type, setType] = useState<'expense' | 'income'>(draft?.type ?? 'expense')
+  const [amount, setAmount] = useState(draft?.amount ?? '')
+  const [category, setCategory] = useState(draft?.category ?? '')
+  const [account, setAccount] = useState(draft?.account ?? '')
+  const [note, setNote] = useState(draft?.note ?? '')
+  const [date, setDate] = useState(() => draft?.date ?? new Date().toISOString().slice(0, 10))
 
   const categories = useCategories(type)
   const accounts = useAccounts()
@@ -104,6 +123,15 @@ export default function AddTransaction() {
   }, [uid, isEdit])
 
   useEffect(() => {
+    if (isEdit) return
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ type, amount, category, account, note, date }))
+    } catch {
+      // storage full/unavailable — draft persistence is best-effort
+    }
+  }, [isEdit, type, amount, category, account, note, date])
+
+  useEffect(() => {
     if (categories && categories.length > 0 && !category) {
       setCategory(categories[0].name)
     }
@@ -134,6 +162,7 @@ export default function AddTransaction() {
       await updateTransaction(uid!, { type, amount: parsed, category, account, note, date })
     } else {
       await addTransaction({ type, amount: parsed, category, account, note, date })
+      sessionStorage.removeItem(DRAFT_KEY)
     }
     navigate(-1)
   }

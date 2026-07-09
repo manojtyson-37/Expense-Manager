@@ -79,12 +79,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (forcedSignedOutRef.current) {
-        // A fresh sign-in is the only event allowed to undo a forced
-        // sign-out — anything else (a stray TOKEN_REFRESHED/USER_UPDATED
-        // for the account we just forced out) is ignored so it can't
-        // repopulate user/session with the old account.
-        if (event !== 'SIGNED_IN') return
+        // A genuine fresh auth action by the user (sign-in, or a password
+        // recovery flow — which in this app always reaches here via a
+        // full-origin redirect that already resets this ref via useRef's
+        // fresh initializer, but exempting it here too keeps the guard's
+        // intent — "only real user actions clear it" — correct even if a
+        // future code path calls signOut() mid-recovery) is the only thing
+        // allowed to undo a forced sign-out. Anything else (a stray
+        // TOKEN_REFRESHED/USER_UPDATED for the account we just forced out)
+        // is ignored so it can't repopulate user/session with that account.
+        if (event !== 'SIGNED_IN' && event !== 'PASSWORD_RECOVERY' && event !== 'USER_UPDATED') return
         forcedSignedOutRef.current = false
+        // stopAutoRefresh() in the timeout branch below only resumes on the
+        // next visibilitychange event, not on sign-in — without this, a new
+        // sign-in in the SAME tab (no background/foreground in between)
+        // would silently never auto-refresh its token again.
+        supabase.auth.startAutoRefresh().catch(() => {})
       }
       if (event === 'PASSWORD_RECOVERY') setRecovery(true)
       setSession(session)

@@ -47,7 +47,21 @@ function txnKey(t: { type: string; amount: number; category: string; account?: s
   return [t.type, t.amount, t.category, t.account || '', t.note, t.date].join('|')
 }
 
+// Defense in depth against the shared-device cross-account leak: if the
+// local Dexie cache belongs to a different user than the one now syncing
+// (normally prevented by clearing on sign-out, but this catches any path
+// that skips that — crash, force-quit, a future second sign-out call site),
+// wipe it before the merge below can push those leftover rows into this
+// user's cloud data.
+const LAST_SYNCED_USER_KEY = 'last-synced-user-id'
+
 export async function syncFromCloud(userId: string) {
+  const lastUser = localStorage.getItem(LAST_SYNCED_USER_KEY)
+  if (lastUser && lastUser !== userId) {
+    await clearLocalData()
+  }
+  localStorage.setItem(LAST_SYNCED_USER_KEY, userId)
+
   await flushOutbox(userId).catch(err => console.error('flushOutbox error:', err))
   // If entries are still queued, the flush didn't fully drain (offline event
   // fired before connectivity was actually usable, or a push/delete failed).
@@ -462,6 +476,27 @@ export async function fullResync(userId: string) {
     console.error('Full resync failed, data still in local DB:', err)
     throw err
   }
+}
+
+// Wipes every local (Dexie) table with no cloud call — for sign-out, not
+// account deletion. Without this, a second account logging in on the same
+// shared device would (a) briefly render the previous account's cached data
+// before the next sync overwrites it, and worse, (b) have syncFromCloud's
+// local-only-row merge push the leftover rows into the NEW account's cloud
+// data, since they're absent from the new account's cloud snapshot and so
+// look "local-only" to the merge.
+export async function clearLocalData(): Promise<void> {
+  await Promise.all([
+    db.transactions.clear(),
+    db.categories.clear(),
+    db.accounts.clear(),
+    db.budgets.clear(),
+    db.subscriptions.clear(),
+    db.loans.clear(),
+    db.goals.clear(),
+    db.outbox.clear(),
+    db.receipts.clear(),
+  ])
 }
 
 export async function clearAllData(userId: string) {

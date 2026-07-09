@@ -477,7 +477,7 @@ export default function Settings() {
           <LogOut size={20} className="text-text-muted shrink-0" />
           <div>
             <div className="font-semibold text-sm">Sign Out</div>
-            <div className="text-xs text-text-muted">Local data stays on device</div>
+            <div className="text-xs text-text-muted">Clears data cached on this device</div>
           </div>
         </button>
       </div>

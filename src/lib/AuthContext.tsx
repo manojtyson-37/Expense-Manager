@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from './supabase'
+import { flushOutbox } from './outbox'
+import { clearLocalData } from './sync'
 import type { User, Session } from '@supabase/supabase-js'
 
 interface AuthState {
@@ -80,8 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Wipes the local Dexie cache on sign-out — otherwise a second account
+  // logging in on the same shared device inherits this account's cached
+  // transactions/accounts/etc, and syncFromCloud's merge can push those
+  // leftover rows into the new account's cloud data. Best-effort flush first
+  // so unsynced local edits aren't silently lost (if offline, they're gone —
+  // an accepted trade-off against leaking one account's data into another's).
   async function signOut() {
+    if (user && navigator.onLine) {
+      await flushOutbox(user.id).catch(() => {})
+    }
     await supabase.auth.signOut()
+    await clearLocalData().catch(() => {})
   }
 
   return (

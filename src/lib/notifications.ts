@@ -14,11 +14,29 @@ export function notificationPermission(): NotificationPermission | 'unsupported'
 
 export async function requestNotificationPermission(): Promise<NotificationPermission> {
   if (!notificationsSupported()) return 'denied'
-  return Notification.requestPermission()
+  const result = await Notification.requestPermission()
+  if (result === 'granted') setNotificationsEnabled(true)
+  return result
+}
+
+// Browser permission, once granted, can't be revoked from JS — only from the
+// browser/OS's own settings. So "turn notifications off" in-app has to be a
+// separate local on/off switch that notify() also respects, independent of
+// the (one-way) browser permission. Without this, enabling notifications was
+// a one-way door: the Settings button just disappeared once granted, with no
+// way back to "off" short of digging into browser site settings.
+const ENABLED_KEY = 'notifications-enabled'
+
+export function notificationsEnabled(): boolean {
+  return localStorage.getItem(ENABLED_KEY) !== 'false'
+}
+
+export function setNotificationsEnabled(enabled: boolean): void {
+  localStorage.setItem(ENABLED_KEY, String(enabled))
 }
 
 export function notify(title: string, body: string): void {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return
+  if (!notificationsSupported() || Notification.permission !== 'granted' || !notificationsEnabled()) return
   try {
     new Notification(title, { body, icon: '/favicon.svg' })
   } catch {

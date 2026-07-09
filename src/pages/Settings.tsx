@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
 import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users, Bell } from 'lucide-react'
-import { notificationsSupported, notificationPermission, requestNotificationPermission } from '../lib/notifications'
+import { notificationsSupported, notificationPermission, requestNotificationPermission, notificationsEnabled, setNotificationsEnabled } from '../lib/notifications'
 
 function isValidBackup(data: unknown): data is {
   transactions?: unknown[]; categories?: unknown[]; accounts?: unknown[]
@@ -55,6 +55,7 @@ export default function Settings() {
   const [syncMsg, setSyncMsg] = useState('')
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
   const [notifPermission, setNotifPermission] = useState(notificationPermission())
+  const [notifEnabled, setNotifEnabled] = useState(notificationsEnabled())
 
   useEffect(() => {
     function onInstall(e: Event) {
@@ -394,6 +395,24 @@ export default function Settings() {
                   ? 'Blocked — enable in your browser/device settings'
                   : 'Get alerts for overdue loans, subscriptions due, budgets over limit'}
               </div>
+            </div>
+          </button>
+        )}
+
+        {notificationsSupported() && notifPermission === 'granted' && (
+          <button
+            onClick={() => { setNotificationsEnabled(!notifEnabled); setNotifEnabled(!notifEnabled) }}
+            className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+          >
+            <Bell size={20} className="text-primary shrink-0" />
+            <div className="flex-1">
+              <div className="font-semibold text-sm">Notifications</div>
+              <div className="text-xs text-text-muted">
+                Alerts for overdue loans, subscriptions due, budgets over limit
+              </div>
+            </div>
+            <div className={`w-11 h-6 rounded-full shrink-0 relative transition-colors ${notifEnabled ? 'bg-primary' : 'bg-surface-light'}`}>
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${notifEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </div>
           </button>
         )}

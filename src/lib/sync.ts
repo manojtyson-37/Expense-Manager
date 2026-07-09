@@ -60,9 +60,12 @@ const LAST_SYNCED_USER_KEY = 'last-synced-user-id'
 // sign-out runs concurrently and wipes Dexie partway through, this call must
 // not go on to push its (now-stale, possibly wrong-account) local reads to
 // this userId's cloud data or write them back into the freshly-wiped Dexie.
-// Every write/push checkpoint below re-checks its captured generation
-// against the current one and bails out silently if a wipe happened in
-// between — closes the race the plain wipe-on-signout alone left open.
+// isSyncStale() is checked immediately before EVERY local-row cloud push
+// (each loop iteration, not just once above the loop) and immediately
+// before every destructive db.X.clear()+bulkAdd() — no intervening await
+// between the check and the write/push it guards, so a wipe landing in any
+// of the network round-trips in between is always caught before the next
+// write happens, not just at a handful of coarser checkpoints.
 let syncGeneration = 0
 function isSyncStale(myGeneration: number): boolean {
   return syncGeneration !== myGeneration
@@ -124,6 +127,7 @@ export async function syncFromCloud(userId: string) {
     // so a racing double-push of the same row is idempotent — no duplicate).
     const cloudKeys = new Set(cloudRows.map(txnKey))
     for (const t of localTxns) {
+      if (isSyncStale(myGeneration)) return
       if (cloudKeys.has(txnKey(t))) continue
       const uid = t.uid || newUid()
       await pushTransaction(userId, {
@@ -152,6 +156,7 @@ export async function syncFromCloud(userId: string) {
       cats.filter(c => c.type !== '_deleted').map(c => c.name)
     )
     for (const c of await db.categories.toArray()) {
+      if (isSyncStale(myGeneration)) return
       if (cloudActiveCatNames.has(c.name)) continue
       await pushCategory(userId, { name: c.name, type: c.type, icon: c.icon, color: c.color })
       cats.push(c)
@@ -160,6 +165,7 @@ export async function syncFromCloud(userId: string) {
     const accs: any[] = [...(cloudAccs || [])]
     const cloudAccNames = new Set(accs.map(a => a.name))
     for (const a of await db.accounts.toArray()) {
+      if (isSyncStale(myGeneration)) return
       if (cloudAccNames.has(a.name)) continue
       await pushAccount(userId, { name: a.name, type: a.type, icon: a.icon, color: a.color })
       accs.push(a)
@@ -168,6 +174,7 @@ export async function syncFromCloud(userId: string) {
     if (isSyncStale(myGeneration)) return
     // Replace local with the merged set (safe now: includes local-only rows)
     if (txns.length > 0) {
+      if (isSyncStale(myGeneration)) return
       await db.transactions.clear()
       await db.transactions.bulkAdd(txns.map(t => ({
         uid: t.uid,
@@ -188,6 +195,7 @@ export async function syncFromCloud(userId: string) {
       seen.add(c.name)
       return true
     })
+    if (isSyncStale(myGeneration)) return
     if (dedupedCats.length > 0) {
       await db.categories.clear()
       await db.categories.bulkAdd(dedupedCats.map(c => ({
@@ -197,6 +205,7 @@ export async function syncFromCloud(userId: string) {
       await ensureDefaultCategories(userId)
     }
 
+    if (isSyncStale(myGeneration)) return
     if (accs.length > 0) {
       // Dedup by name
       const seenAcc = new Set<string>()
@@ -212,6 +221,7 @@ export async function syncFromCloud(userId: string) {
     } else {
       const count = await db.accounts.count()
       if (count === 0) await seedAccounts()
+      if (isSyncStale(myGeneration)) return
       const localAccs = await db.accounts.toArray()
       if (localAccs.length > 0) {
         await supabase.from('accounts').insert(
@@ -225,6 +235,7 @@ export async function syncFromCloud(userId: string) {
     const { data: cloudBudgets } = await supabase
       .from('budgets').select('*').eq('user_id', userId)
     if (cloudBudgets && cloudBudgets.length > 0) {
+      if (isSyncStale(myGeneration)) return
       await db.budgets.clear()
       await db.budgets.bulkAdd(cloudBudgets.map(b => ({
         category: b.category,
@@ -241,6 +252,7 @@ export async function syncFromCloud(userId: string) {
     const localSubs = await db.subscriptions.toArray()
     const cloudSubUids = new Set((cloudSubs || []).map(s => s.uid))
     for (const s of localSubs) {
+      if (isSyncStale(myGeneration)) return
       if (!cloudSubUids.has(s.uid)) {
         await pushSubscription(userId, s)
       }
@@ -250,6 +262,7 @@ export async function syncFromCloud(userId: string) {
       // Re-fetch after pushing local-only rows
       const { data: mergedSubs } = await supabase
         .from('subscriptions').select('*').eq('user_id', userId)
+      if (isSyncStale(myGeneration)) return
       if (mergedSubs && mergedSubs.length > 0) {
         await db.subscriptions.clear()
         await db.subscriptions.bulkAdd(mergedSubs.map(s => ({
@@ -276,6 +289,7 @@ export async function syncFromCloud(userId: string) {
     const localLoans = await db.loans.toArray()
     const cloudLoanUids = new Set((cloudLoans || []).map(l => l.uid))
     for (const l of localLoans) {
+      if (isSyncStale(myGeneration)) return
       if (!cloudLoanUids.has(l.uid)) {
         await pushLoan(l)
       }
@@ -283,6 +297,7 @@ export async function syncFromCloud(userId: string) {
     if ((cloudLoans || []).length > 0 || localLoans.length > 0) {
       const { data: mergedLoans } = await supabase
         .from('loans').select('*').eq('user_id', userId)
+      if (isSyncStale(myGeneration)) return
       if (mergedLoans && mergedLoans.length > 0) {
         await db.loans.clear()
         await db.loans.bulkAdd(mergedLoans.map(l => ({
@@ -307,6 +322,7 @@ export async function syncFromCloud(userId: string) {
     const localGoals = await db.goals.toArray()
     const cloudGoalUids = new Set((cloudGoals || []).map(g => g.uid))
     for (const g of localGoals) {
+      if (isSyncStale(myGeneration)) return
       if (!cloudGoalUids.has(g.uid)) {
         await pushGoal(userId, g)
       }
@@ -314,6 +330,7 @@ export async function syncFromCloud(userId: string) {
     if ((cloudGoals || []).length > 0 || localGoals.length > 0) {
       const { data: mergedGoals } = await supabase
         .from('goals').select('*').eq('user_id', userId)
+      if (isSyncStale(myGeneration)) return
       if (mergedGoals && mergedGoals.length > 0) {
         await db.goals.clear()
         await db.goals.bulkAdd(mergedGoals.map(g => ({

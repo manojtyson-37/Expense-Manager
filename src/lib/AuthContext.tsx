@@ -89,8 +89,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // so unsynced local edits aren't silently lost (if offline, they're gone —
   // an accepted trade-off against leaking one account's data into another's,
   // same as the existing offline-outbox trade-off elsewhere in this file).
-  // The flush is capped at 4s — a hung request (flaky network reporting
-  // online) must not block sign-out indefinitely and trap the user.
+  // Both the flush and the sign-out call itself are capped — a hung request
+  // (flaky network reporting online) must not block sign-out indefinitely
+  // and trap the user. The Promise.race only stops *awaiting* flushOutbox;
+  // if it's still running past the cap, its own (userId-scoped, so not a
+  // cross-account risk) outbox writes can land after clearLocalData()'s
+  // db.outbox.clear() below and leave a stray row. Accepted: rare, and the
+  // wipe's account-isolation guarantee for every other table still holds.
   async function signOut() {
     if (user && navigator.onLine) {
       await Promise.race([
@@ -98,7 +103,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Promise(resolve => setTimeout(resolve, 4000)),
       ])
     }
-    await supabase.auth.signOut()
+    await Promise.race([
+      supabase.auth.signOut().catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 4000)),
+    ])
     await clearLocalData().catch(() => {})
   }
 

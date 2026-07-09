@@ -548,6 +548,35 @@ export async function clearLocalData(): Promise<void> {
   ])
 }
 
+// Writes a full snapshot of the user's current data to a server-side,
+// append-only table before a destructive clear — a safety net that survives
+// even if the user's auto-downloaded local backup file gets lost, since it
+// lives in Supabase instead of on the device that triggered the deletion.
+// Best-effort: a failure here must not block the deletion the user already
+// typed "DELETE" to confirm — the local downloaded file (triggered alongside
+// this, see Settings.tsx) is the guaranteed copy; this is the extra layer.
+export async function snapshotBeforeClear(userId: string): Promise<{ ok: boolean }> {
+  try {
+    const [transactions, categories, accounts, budgets, subscriptions, loans, goals] = await Promise.all([
+      db.transactions.toArray(), db.categories.toArray(), db.accounts.toArray(),
+      db.budgets.toArray(), db.subscriptions.toArray(), db.loans.toArray(), db.goals.toArray(),
+    ])
+    const { error } = await supabase.from('data_deletion_backups').insert({
+      user_id: userId,
+      reason: 'clear_all_data',
+      data: { transactions, categories, accounts, budgets, subscriptions, loans, goals },
+    })
+    if (error) {
+      console.error('snapshotBeforeClear: insert failed:', error)
+      return { ok: false }
+    }
+    return { ok: true }
+  } catch (err) {
+    console.error('snapshotBeforeClear failed:', err)
+    return { ok: false }
+  }
+}
+
 // "Delete all data from local + cloud" previously only touched
 // transactions/categories/accounts — budgets, subscriptions, loans, and
 // goals silently survived in both Supabase and the local Dexie cache, and

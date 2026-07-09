@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { db, type Transaction, type Category, type Account, type Budget, type Subscription, type Loan, type Goal, newUid } from '../db'
 import { useAuth } from '../lib/AuthContext'
-import { fullResync, syncFromCloud, clearAllData, pushSubscription, pushLoan, pushGoal } from '../lib/sync'
+import { fullResync, syncFromCloud, clearAllData, snapshotBeforeClear, pushSubscription, pushLoan, pushGoal } from '../lib/sync'
 import { supabase } from '../lib/supabase'
 import { useCurrency } from '../lib/CurrencyContext'
 import { CURRENCIES } from '../lib/currency'
-import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users, Bell } from 'lucide-react'
+import { Download, Trash2, Smartphone, CreditCard, Cloud, LogOut, RefreshCw, Target, Coins, RefreshCcw, Users, Bell, ChevronDown, AlertTriangle } from 'lucide-react'
 import { notificationsSupported, notificationPermission, requestNotificationPermission, notificationsEnabled, setNotificationsEnabled } from '../lib/notifications'
 
 function isValidBackup(data: unknown): data is {
@@ -50,7 +50,10 @@ export default function Settings() {
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
   const { currency, setCurrency } = useCurrency()
+  const [dangerZoneOpen, setDangerZoneOpen] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
@@ -100,7 +103,10 @@ export default function Settings() {
     setTimeout(() => setSyncMsg(''), 3000)
   }
 
-  async function handleExportAll() {
+  // Shared by the manual "Export Backup" button and the automatic
+  // pre-deletion download in handleClearAll — one definition of "what a
+  // full backup contains" instead of two copies that could drift apart.
+  async function exportBackupFile(filenameSuffix = '') {
     const transactions = await db.transactions.toArray()
     const categories = await db.categories.toArray()
     const accounts = await db.accounts.toArray()
@@ -113,9 +119,13 @@ export default function Settings() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `expense-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `expense-tracker-backup-${new Date().toISOString().slice(0, 10)}${filenameSuffix}.json`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  async function handleExportAll() {
+    await exportBackupFile()
   }
 
   async function handleImport() {
@@ -238,13 +248,27 @@ export default function Settings() {
     input.click()
   }
 
+  // Two independent safety nets before the irreversible delete: a local
+  // file download (always works, no network needed) and a server-side
+  // snapshot in Supabase (survives even if the local file gets lost —
+  // best-effort, doesn't block deletion if it fails since the local file
+  // already guarantees a recoverable copy exists).
   async function handleClearAll() {
+    if (deleteConfirmText !== 'DELETE') return
+    setDeleting(true)
     try {
-      if (user) await clearAllData(user.id)
-      else await db.transactions.clear()
+      await exportBackupFile('-before-delete')
+      if (user) {
+        await snapshotBeforeClear(user.id)
+        await clearAllData(user.id)
+      } else {
+        await db.transactions.clear()
+      }
     } catch {
       alert('Failed to clear cloud data. Try again.')
     }
+    setDeleting(false)
+    setDeleteConfirmText('')
     setShowConfirm(false)
   }
 
@@ -440,36 +464,69 @@ export default function Settings() {
           </div>
         </button>
 
-        {showConfirm ? (
-          <div className="bg-expense/10 border border-expense rounded-2xl p-4">
-            <p className="text-sm font-medium mb-3">Delete all data? This cannot be undone.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleClearAll}
-                className="flex-1 py-2.5 bg-expense text-white rounded-xl font-medium text-sm"
-              >
-                Yes, Delete All
-              </button>
-              <button
-                onClick={() => setShowConfirm(false)}
-                className="flex-1 py-2.5 bg-surface-light rounded-xl font-medium text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
+        <div className="border border-expense/30 rounded-2xl overflow-hidden">
           <button
-            onClick={() => setShowConfirm(true)}
-            className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+            onClick={() => setDangerZoneOpen(o => !o)}
+            className="w-full flex items-center gap-3 p-4 text-left active:bg-surface-light"
           >
-            <Trash2 size={20} className="text-expense shrink-0" />
-            <div>
-              <div className="font-semibold text-sm text-expense">Clear All Data</div>
-              <div className="text-xs text-text-muted">Delete all data from local + cloud</div>
+            <AlertTriangle size={20} className="text-expense shrink-0" />
+            <div className="flex-1">
+              <div className="font-semibold text-sm text-expense">Danger zone</div>
+              <div className="text-xs text-text-muted">Irreversible actions</div>
             </div>
+            <ChevronDown size={18} className={`text-text-muted shrink-0 transition-transform ${dangerZoneOpen ? 'rotate-180' : ''}`} />
           </button>
-        )}
+
+          {dangerZoneOpen && (
+            <div className="p-4 pt-0 space-y-3">
+              {showConfirm ? (
+                <div className="bg-expense/10 border border-expense rounded-2xl p-4">
+                  <p className="text-sm font-medium mb-1">Delete all data? This cannot be undone.</p>
+                  <p className="text-xs text-text-muted mb-3">
+                    A backup downloads to this device and a copy saves to the cloud automatically before anything is deleted.
+                  </p>
+                  <label className="text-xs text-text-muted block mb-1.5">Type DELETE to confirm</label>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    placeholder="DELETE"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    className="mb-3"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleClearAll}
+                      disabled={deleteConfirmText !== 'DELETE' || deleting}
+                      className="flex-1 py-2.5 bg-expense text-white rounded-xl font-medium text-sm disabled:opacity-40"
+                    >
+                      {deleting ? 'Deleting...' : 'Delete everything'}
+                    </button>
+                    <button
+                      onClick={() => { setShowConfirm(false); setDeleteConfirmText('') }}
+                      disabled={deleting}
+                      className="flex-1 py-2.5 bg-surface-light rounded-xl font-medium text-sm disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+                >
+                  <Trash2 size={20} className="text-expense shrink-0" />
+                  <div>
+                    <div className="font-semibold text-sm text-expense">Clear all data</div>
+                    <div className="text-xs text-text-muted">Delete all data from local + cloud</div>
+                  </div>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
 
         <button
           onClick={() => {

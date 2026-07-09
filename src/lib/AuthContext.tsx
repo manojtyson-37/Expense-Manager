@@ -103,10 +103,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         new Promise(resolve => setTimeout(resolve, 4000)),
       ])
     }
-    await Promise.race([
-      supabase.auth.signOut().catch(() => {}),
-      new Promise(resolve => setTimeout(resolve, 4000)),
+
+    const TIMED_OUT = Symbol('timed-out')
+    const result = await Promise.race([
+      supabase.auth.signOut().catch(() => undefined),
+      new Promise(resolve => setTimeout(() => resolve(TIMED_OUT), 4000)),
     ])
+
+    // supabase.auth.signOut() only clears the local session (and fires the
+    // SIGNED_OUT event this component's onAuthStateChange listener depends
+    // on to null out user/session) AFTER its network revoke call resolves —
+    // even so, it still makes that network call first. If it's still hung
+    // past the cap, that event may never fire: user/session stay populated,
+    // App.tsx never drops to the Login screen, and the next reconnect/
+    // tab-focus sync calls syncFromCloud with the OLD user's id — pulling
+    // their data straight back into the cache clearLocalData() is about to
+    // wipe. Force the local session gone ourselves so that can't happen,
+    // regardless of whether the network call ever completes.
+    if (result === TIMED_OUT) {
+      const key = Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'))
+      if (key) localStorage.removeItem(key)
+      setSession(null)
+      setUser(null)
+    }
+
     await clearLocalData().catch(() => {})
   }
 

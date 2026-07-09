@@ -13,7 +13,11 @@ async function getUserId(): Promise<string | null> {
 
 export { getUserId }
 
-async function ensureDefaultCategories(userId: string) {
+// myGeneration is optional so this can still be called from contexts outside
+// syncFromCloud's staleness tracking (none currently, but keeps this usable
+// standalone) — when passed, checked immediately before each write, same as
+// every other write site in syncFromCloud.
+async function ensureDefaultCategories(userId: string, myGeneration?: number) {
   const existing = await db.categories.toArray()
   const existingNames = new Set(existing.map(c => c.name))
 
@@ -34,9 +38,11 @@ async function ensureDefaultCategories(userId: string) {
   )
 
   if (missingLocal.length > 0) {
+    if (myGeneration !== undefined && isSyncStale(myGeneration)) return
     await db.categories.bulkAdd(missingLocal as Category[])
   }
   if (missingCloud.length > 0) {
+    if (myGeneration !== undefined && isSyncStale(myGeneration)) return
     await supabase.from('categories').insert(
       missingCloud.map(c => ({ user_id: userId, name: c.name, type: c.type, icon: c.icon, color: c.color }))
     )
@@ -202,7 +208,7 @@ export async function syncFromCloud(userId: string) {
         name: c.name, type: c.type as 'income' | 'expense', icon: c.icon, color: c.color,
       })) as Category[])
     } else {
-      await ensureDefaultCategories(userId)
+      await ensureDefaultCategories(userId, myGeneration)
     }
 
     if (isSyncStale(myGeneration)) return
@@ -220,9 +226,11 @@ export async function syncFromCloud(userId: string) {
       })) as Account[])
     } else {
       const count = await db.accounts.count()
+      if (isSyncStale(myGeneration)) return
       if (count === 0) await seedAccounts()
       if (isSyncStale(myGeneration)) return
       const localAccs = await db.accounts.toArray()
+      if (isSyncStale(myGeneration)) return
       if (localAccs.length > 0) {
         await supabase.from('accounts').insert(
           localAccs.map(a => ({ user_id: userId, name: a.name, type: a.type, icon: a.icon, color: a.color }))

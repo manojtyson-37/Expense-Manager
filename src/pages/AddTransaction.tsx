@@ -16,14 +16,16 @@ import { Camera, Trash2 } from 'lucide-react'
 // fully reloads the JS context — plain useState loses whatever was typed.
 // Persisting the in-progress (non-edit) entry to sessionStorage survives
 // that reload; sessionStorage (not localStorage) so it doesn't linger
-// across tabs/sessions once the app is closed for good.
-const DRAFT_KEY = 'add-transaction-draft'
+// across tabs/sessions once the app is closed for good. Keyed per-user so
+// a shared device switching accounts never auto-fills one user's
+// in-progress amount/note into another user's form.
+const DRAFT_KEY_PREFIX = 'add-transaction-draft:'
 
 type Draft = { type: 'expense' | 'income'; amount: string; category: string; account: string; note: string; date: string }
 
-function loadDraft(): Draft | null {
+function loadDraft(key: string): Draft | null {
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY)
+    const raw = sessionStorage.getItem(key)
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -34,7 +36,9 @@ export default function AddTransaction() {
   const navigate = useNavigate()
   const { uid } = useParams()
   const isEdit = !!uid
-  const draft = isEdit ? null : loadDraft()
+  const { user } = useAuth()
+  const draftKey = DRAFT_KEY_PREFIX + (user?.id ?? 'anon')
+  const draft = isEdit ? null : loadDraft(draftKey)
 
   const [type, setType] = useState<'expense' | 'income'>(draft?.type ?? 'expense')
   const [amount, setAmount] = useState(draft?.amount ?? '')
@@ -46,7 +50,6 @@ export default function AddTransaction() {
   const categories = useCategories(type)
   const accounts = useAccounts()
   const { symbol, format } = useCurrency()
-  const { user } = useAuth()
   const [anomalyAvg, setAnomalyAvg] = useState<number | null>(null)
   const [autoCategorized, setAutoCategorized] = useState<string | null>(null)
 
@@ -125,23 +128,29 @@ export default function AddTransaction() {
   useEffect(() => {
     if (isEdit) return
     try {
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ type, amount, category, account, note, date }))
+      sessionStorage.setItem(draftKey, JSON.stringify({ type, amount, category, account, note, date }))
     } catch {
       // storage full/unavailable — draft persistence is best-effort
     }
-  }, [isEdit, type, amount, category, account, note, date])
+  }, [isEdit, draftKey, type, amount, category, account, note, date])
+
+  // A restored (non-edit) draft can name a category/account that's since
+  // been deleted or renamed elsewhere while this tab was backgrounded —
+  // treat that as unset so the default-fill below applies, instead of
+  // silently submitting an orphaned name. Scoped to !isEdit: an edit-mode
+  // record with a since-deleted category should keep displaying its
+  // original name rather than get silently swapped to a different one.
+  useEffect(() => {
+    if (!categories) return
+    if (!isEdit && category && !categories.some(c => c.name === category)) { setCategory(''); return }
+    if (categories.length > 0 && !category) setCategory(categories[0].name)
+  }, [categories, category, isEdit])
 
   useEffect(() => {
-    if (categories && categories.length > 0 && !category) {
-      setCategory(categories[0].name)
-    }
-  }, [categories, category])
-
-  useEffect(() => {
-    if (accounts && accounts.length > 0 && !account) {
-      setAccount(accounts[0].name)
-    }
-  }, [accounts, account])
+    if (!accounts) return
+    if (!isEdit && account && !accounts.some(a => a.name === account)) { setAccount(''); return }
+    if (accounts.length > 0 && !account) setAccount(accounts[0].name)
+  }, [accounts, account, isEdit])
 
   const [error, setError] = useState('')
 
@@ -162,7 +171,11 @@ export default function AddTransaction() {
       await updateTransaction(uid!, { type, amount: parsed, category, account, note, date })
     } else {
       await addTransaction({ type, amount: parsed, category, account, note, date })
-      sessionStorage.removeItem(DRAFT_KEY)
+      try {
+        sessionStorage.removeItem(draftKey)
+      } catch {
+        // best-effort — the transaction itself already saved successfully
+      }
     }
     navigate(-1)
   }

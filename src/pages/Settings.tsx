@@ -254,7 +254,11 @@ export default function Settings() {
   // best-effort, doesn't block deletion if it fails since the local file
   // already guarantees a recoverable copy exists).
   async function handleClearAll() {
-    if (deleteConfirmText !== 'DELETE') return
+    // The disabled attribute alone isn't a reliable guard against a fast
+    // double-click/double-tap — setDeleting(true) is an async state update,
+    // so the button doesn't actually disable until the next render. This
+    // explicit check closes that gap regardless of render timing.
+    if (deleting || deleteConfirmText !== 'DELETE') return
     setDeleting(true)
     try {
       await exportBackupFile('-before-delete')

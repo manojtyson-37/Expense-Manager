@@ -87,10 +87,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // transactions/accounts/etc, and syncFromCloud's merge can push those
   // leftover rows into the new account's cloud data. Best-effort flush first
   // so unsynced local edits aren't silently lost (if offline, they're gone —
-  // an accepted trade-off against leaking one account's data into another's).
+  // an accepted trade-off against leaking one account's data into another's,
+  // same as the existing offline-outbox trade-off elsewhere in this file).
+  // The flush is capped at 4s — a hung request (flaky network reporting
+  // online) must not block sign-out indefinitely and trap the user.
   async function signOut() {
     if (user && navigator.onLine) {
-      await flushOutbox(user.id).catch(() => {})
+      await Promise.race([
+        flushOutbox(user.id).catch(() => {}),
+        new Promise(resolve => setTimeout(resolve, 4000)),
+      ])
     }
     await supabase.auth.signOut()
     await clearLocalData().catch(() => {})

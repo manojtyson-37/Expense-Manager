@@ -55,14 +55,29 @@ function txnKey(t: { type: string; amount: number; category: string; account?: s
 // user's cloud data.
 const LAST_SYNCED_USER_KEY = 'last-synced-user-id'
 
+// Bumped by clearLocalData() (called by sign-out and the mismatch guard
+// below). syncFromCloud is a long chain of awaited network calls — if
+// sign-out runs concurrently and wipes Dexie partway through, this call must
+// not go on to push its (now-stale, possibly wrong-account) local reads to
+// this userId's cloud data or write them back into the freshly-wiped Dexie.
+// Every write/push checkpoint below re-checks its captured generation
+// against the current one and bails out silently if a wipe happened in
+// between — closes the race the plain wipe-on-signout alone left open.
+let syncGeneration = 0
+function isSyncStale(myGeneration: number): boolean {
+  return syncGeneration !== myGeneration
+}
+
 export async function syncFromCloud(userId: string) {
   const lastUser = localStorage.getItem(LAST_SYNCED_USER_KEY)
   if (lastUser && lastUser !== userId) {
     await clearLocalData()
   }
   localStorage.setItem(LAST_SYNCED_USER_KEY, userId)
+  const myGeneration = syncGeneration
 
   await flushOutbox(userId).catch(err => console.error('flushOutbox error:', err))
+  if (isSyncStale(myGeneration)) return
   // If entries are still queued, the flush didn't fully drain (offline event
   // fired before connectivity was actually usable, or a push/delete failed).
   // Pulling and merging now would overwrite the not-yet-synced local state
@@ -101,6 +116,7 @@ export async function syncFromCloud(userId: string) {
     // identical rows collapse into one (product decision), and a row whose uid
     // diverged between local and cloud (e.g. independent backfills) does NOT
     // double — content matches, so it's treated as the same row.
+    if (isSyncStale(myGeneration)) return
     const cloudRows: any[] = (cloudTxns || []).map(t => ({ ...t, amount: Number(t.amount), uid: t.uid || newUid() }))
     const localTxns = await db.transactions.toArray()
 
@@ -149,6 +165,7 @@ export async function syncFromCloud(userId: string) {
       accs.push(a)
     }
 
+    if (isSyncStale(myGeneration)) return
     // Replace local with the merged set (safe now: includes local-only rows)
     if (txns.length > 0) {
       await db.transactions.clear()
@@ -203,6 +220,7 @@ export async function syncFromCloud(userId: string) {
       }
     }
 
+    if (isSyncStale(myGeneration)) return
     // Pull budgets
     const { data: cloudBudgets } = await supabase
       .from('budgets').select('*').eq('user_id', userId)
@@ -216,6 +234,7 @@ export async function syncFromCloud(userId: string) {
       })) as Budget[])
     }
 
+    if (isSyncStale(myGeneration)) return
     // Pull subscriptions — push local-only first, then replace with merged set
     const { data: cloudSubs } = await supabase
       .from('subscriptions').select('*').eq('user_id', userId)
@@ -250,6 +269,7 @@ export async function syncFromCloud(userId: string) {
       }
     }
 
+    if (isSyncStale(myGeneration)) return
     // Pull loans — push local-only first, then replace with merged set
     const { data: cloudLoans } = await supabase
       .from('loans').select('*').eq('user_id', userId)
@@ -280,6 +300,7 @@ export async function syncFromCloud(userId: string) {
       }
     }
 
+    if (isSyncStale(myGeneration)) return
     // Pull goals — push local-only first, then replace with merged set
     const { data: cloudGoals } = await supabase
       .from('goals').select('*').eq('user_id', userId)
@@ -486,6 +507,9 @@ export async function fullResync(userId: string) {
 // data, since they're absent from the new account's cloud snapshot and so
 // look "local-only" to the merge.
 export async function clearLocalData(): Promise<void> {
+  // Invalidates any syncFromCloud call already in flight (see isSyncStale
+  // above) so it can't write stale/wrong-account rows back after this wipe.
+  syncGeneration++
   await Promise.all([
     db.transactions.clear(),
     db.categories.clear(),
@@ -499,14 +523,22 @@ export async function clearLocalData(): Promise<void> {
   ])
 }
 
+// "Delete all data from local + cloud" previously only touched
+// transactions/categories/accounts — budgets, subscriptions, loans, and
+// goals silently survived in both Supabase and the local Dexie cache, and
+// receipt photos survived on-device. A user who hits this expecting a full
+// wipe (e.g. before handing off/selling a device) was left with residual
+// financial data undetected. Cloud first per table — if cloud fails, local
+// data for that table is preserved for retry rather than dropped early.
 export async function clearAllData(userId: string) {
-  // Cloud first, then local — if cloud fails, local data preserved
   await supabase.from('transactions').delete().eq('user_id', userId)
   await supabase.from('categories').delete().eq('user_id', userId)
   await supabase.from('accounts').delete().eq('user_id', userId)
-  await db.transactions.clear()
-  await db.categories.clear()
-  await db.accounts.clear()
+  await supabase.from('budgets').delete().eq('user_id', userId)
+  await supabase.from('subscriptions').delete().eq('user_id', userId)
+  await supabase.from('loans').delete().eq('user_id', userId)
+  await supabase.from('goals').delete().eq('user_id', userId)
+  await clearLocalData()
 }
 
 export async function pushSubscription(userId: string, s: Omit<Subscription, 'id'>) {

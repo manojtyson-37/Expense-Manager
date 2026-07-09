@@ -51,6 +51,7 @@ export default function Settings() {
   const { user, signOut } = useAuth()
   const { currency, setCurrency } = useCurrency()
   const [showConfirm, setShowConfirm] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState('')
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null)
@@ -471,12 +472,21 @@ export default function Settings() {
         )}
 
         <button
-          onClick={signOut}
-          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light"
+          onClick={() => {
+            if (signingOut) return
+            setSigningOut(true)
+            // On success the user becomes null and this component unmounts via
+            // App's route switch, so signingOut never needs resetting there —
+            // only reset it if signOut() throws before that happens, so a
+            // failed attempt doesn't leave the button stuck disabled forever.
+            signOut().catch(() => setSigningOut(false))
+          }}
+          disabled={signingOut}
+          className="w-full flex items-center gap-3 bg-surface rounded-2xl p-4 text-left active:bg-surface-light disabled:opacity-50"
         >
           <LogOut size={20} className="text-text-muted shrink-0" />
           <div>
-            <div className="font-semibold text-sm">Sign Out</div>
+            <div className="font-semibold text-sm">{signingOut ? 'Signing out...' : 'Sign Out'}</div>
             <div className="text-xs text-text-muted">Clears data cached on this device</div>
           </div>
         </button>

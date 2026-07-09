@@ -15,12 +15,21 @@ interface Props {
   onMonthChange: (m: string) => void
 }
 
+// A field starting with =, +, -, or @ is interpreted as a formula by
+// Excel/Sheets when the CSV is opened — a note or category imported from
+// someone else's file (or just typed by the user) could otherwise execute
+// arbitrary formulas on export/reopen. Prefixing with a single quote forces
+// spreadsheet apps to treat it as literal text.
+function escapeCSVFormula(value: string): string {
+  return /^[=+\-@]/.test(value) ? `'${value}` : value
+}
+
 function exportCSV(transactions: { type: string; amount: number; category: string; account: string; note: string; date: string }[]) {
   const header = 'Date,Type,Category,Account,Amount,Note'
   const rows = transactions.map(t => {
-    const note = t.note.replace(/"/g, '""').replace(/\n/g, ' ')
-    const cat = `"${t.category.replace(/"/g, '""')}"`
-    const acc = `"${(t.account || '').replace(/"/g, '""')}"`
+    const note = escapeCSVFormula(t.note).replace(/"/g, '""').replace(/\n/g, ' ')
+    const cat = `"${escapeCSVFormula(t.category).replace(/"/g, '""')}"`
+    const acc = `"${escapeCSVFormula(t.account || '').replace(/"/g, '""')}"`
     return `${t.date},${t.type},${cat},${acc},${t.type === 'expense' ? '-' : ''}${t.amount.toFixed(2)},"${note}"`
   })
   const csv = [header, ...rows].join('\n')
@@ -79,7 +88,10 @@ function parseCSV(text: string): { rows: ParsedCSVRow[]; skipped: number } {
       skipped++
       continue
     }
-    rows.push({ date, type, category, account: account || '', amount, note: note || '' })
+    // Undo exportCSV's formula-injection guard so a round-tripped
+    // export→import doesn't leave a literal leading quote in the text.
+    const unescape = (v: string) => /^'[=+\-@]/.test(v) ? v.slice(1) : v
+    rows.push({ date, type, category: unescape(category), account: unescape(account || ''), amount, note: unescape(note || '') })
   }
   return { rows, skipped }
 }
